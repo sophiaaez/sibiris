@@ -2,3 +2,4 @@ data/
 *.jpg
 *.jpeg
 ae/train*
+*.weights
