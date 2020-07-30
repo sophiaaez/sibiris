@@ -1,3 +1,4 @@
 data/
 *.jpg
 *.jpeg
+ae/train*
