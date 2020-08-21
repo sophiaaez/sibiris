@@ -3,3 +3,4 @@ data/
 *.jpeg
 ae/train*
 *.weights
+*modelsave*
