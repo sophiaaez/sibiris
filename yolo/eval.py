@@ -47,14 +47,14 @@ def evaluateResultsMAP(setpath,resultspath):
             best_iou = 0
             for l in label: #find bestmatching label for detected box
                 if classesMatch(l[0],results[o,1]):
-                    x,y,w,h = relativeToAbsolute(l[1],l[2],l[3],l[4],img.shape[1],img.shape[0]) #label struktur original x,y,w,h in relativ
+                    x,y,w,h = relativeToAbsolute(l[1],l[2],l[3],l[4],img.shape[1],img.shape[0]) #label struktur original x,y,w,h in relativ #fpr the fifth time, yes this is correct shape[1] = x, shape[0] = y
                     groundtruth = [float(x-w/2),float(y-h/2),float(x+w/2),float(y+h/2)]
                     coords = [float(pred[0]-pred[2]/2),float(pred[1]-pred[3]/2),float(pred[0]+pred[2]/2),float(pred[1]+pred[3]/2)]
                     iou = getIoU(groundtruth,coords)
                     if iou > best_iou:
                         best_iou = iou
             for threshold in iouthresholds:
-              if iou >= threshold:
+              if best_iou >= threshold:
                   pn[threshold].append("TP")
               else:
                   pn[threshold].append("FP")
@@ -91,29 +91,39 @@ def getAP(prec,rec):
   ap = np.mean(smoothprec)
   return(smoothprec,ap)
 
-def getIntersection(a,b):
+def getIntersection(a,b): #each in format x1,y1,x2,y2
   intersection = [0,0,0,0]
-  if a[0] > b[0]: #left
+  #left -> 
+  if b[0] <= a[0] and a[0] <= b[2]:
     intersection[0] = a[0]
-  else:
+  elif a[0] <= b[0] and b[0] <= a[2]:
     intersection[0] = b[0]
-  if a[1] > b[1]: #down
+  else: 
+    return 0
+  #down ->
+  if b[1] <= a[1] and a[1] <= b[3]:
     intersection[1] = a[1]
-  else:
+  elif a[1] <= b[1] and b[1] <= a[3]:
     intersection[1] = b[1]
-  if a[2] < b[2]: #right
+  else:
+    return 0
+  #right ->
+  if b[0] <= a[2] and a[2] <= b[2]: 
     intersection[2] = a[2]
-  else:
+  elif a[0] <= b[2] and b[2] <= a[2]:
     intersection[2] = b[2]
-  if a[3] < b[3]: #up
-    intersection[3] = a[3]
   else:
+    return 0
+  #up ->
+  if b[0] <= a[3] and a[3] <= b[3]: #up
+    intersection[3] = a[3]
+  elif a[0] <= b[3] and b[3] <= a[3]:
     intersection[3] = b[3] 
-  i1 = abs(intersection[3]-intersection[1])
-  i2 = abs(intersection[2]-intersection[0])
+  else:
+    return 0
+  i1 = intersection[3]-intersection[1]
+  i2 = intersection[2]-intersection[0]
   i = i1*i2 
-  if i < 0:
-    i = 0
   return i
 
 def getIoU(a,b): #format of a and b is x1,y1,x2,y2
@@ -226,7 +236,7 @@ def valEval():
 
 
 def main():
-  testEval()
+  valEval()
 
 if __name__ == "__main__":
     main()
