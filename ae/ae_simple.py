@@ -12,14 +12,15 @@ from torchvision.utils import save_image
 import torchvision.datasets as datasets
 #from torchsummary import summary
 
+import csv
 import glob
 import numpy as np
 import matplotlib.pyplot as plt
 import math
-import optuna
 from PIL import Image
 import random
 from skimage import io, util, transform, color
+import optuna
 
 #from torch.utils.tensorboard import SummaryWriter
 
@@ -42,14 +43,15 @@ class UnFlatten(nn.Module):
 
 
 class facenetAE(nn.Module):
-    def __init__(self,layer_amount=6,channels=1,isize=512,z_dim=64):
+    def __init__(self,layer_amount=6,channels=1,isize=512,z_dim=64,layer_size=128):
         super(facenetAE,self).__init__()
         isize=512
         poolamount = 16
         z_dim=z_dim
-        bottlefilters = 256
+        bottlefilters = layer_size
         h_dim = int(pow((isize/(poolamount*2)),2)*bottlefilters)
         self.layer_amount = layer_amount
+        self.layer_size=layer_size
 
         #Encoder
         self.conv1 = nn.Conv2d(1, 64, 7, stride=2, padding=3)  
@@ -63,13 +65,26 @@ class facenetAE(nn.Module):
         self.conv5a = nn.Conv2d(256,256,3,stride=1,padding=1)
         self.conv6 = nn.Conv2d(256,256,1,stride=1)
         self.conv6a = nn.Conv2d(256,256,3,stride=1,padding=1)
+
+        self.conv41 = nn.Conv2d(256,128,1,stride=1)
+        self.conv41a = nn.Conv2d(128,128,3,stride=1,padding=1)
+        self.conv42 = nn.Conv2d(256,64,1,stride=1)
+        self.conv42a = nn.Conv2d(64,64,3,stride=1,padding=1)
+        self.conv43 = nn.Conv2d(256,32,1,stride=1)
+        self.conv43a = nn.Conv2d(32,32,3,stride=1,padding=1)
+
         self.pool = nn.MaxPool2d(3, 2,padding=1)
+        self.lrn = nn.LocalResponseNorm(2)
        
         #Bottleneck
         self.fl = Flatten()
         self.unfl = UnFlatten(bottlefilters)
 
         #Decoder
+        self.t_conv41 = nn.ConvTranspose2d(128,256,1,stride=1)
+        self.t_conv42 = nn.ConvTranspose2d(64,256,1,stride=1)
+        self.t_conv43 = nn.ConvTranspose2d(32,256,1,stride=1)
+
         self.t_conv4 = nn.ConvTranspose2d(256,384,2,stride=2)
         self.t_conv3 = nn.ConvTranspose2d(384,192,2,stride=2)
         self.t_conv2 = nn.ConvTranspose2d(192,64,2,stride=2)
@@ -86,19 +101,96 @@ class facenetAE(nn.Module):
         torch.nn.init.xavier_uniform_(self.conv5a.weight,gain=nn.init.calculate_gain('relu'))
         torch.nn.init.xavier_uniform_(self.conv6.weight,gain=nn.init.calculate_gain('relu'))
         torch.nn.init.xavier_uniform_(self.conv6a.weight,gain=nn.init.calculate_gain('relu'))
-        torch.nn.init.xavier_uniform_(self.t_conv1.weight,gain=nn.init.calculate_gain('relu'))
-        torch.nn.init.xavier_uniform_(self.t_conv2.weight,gain=nn.init.calculate_gain('relu'))
-        torch.nn.init.xavier_uniform_(self.t_conv3.weight,gain=nn.init.calculate_gain('relu'))
+
+        torch.nn.init.xavier_uniform_(self.conv41.weight,gain=nn.init.calculate_gain('relu'))
+        torch.nn.init.xavier_uniform_(self.conv41a.weight,gain=nn.init.calculate_gain('relu'))
+        torch.nn.init.xavier_uniform_(self.conv42.weight,gain=nn.init.calculate_gain('relu'))
+        torch.nn.init.xavier_uniform_(self.conv42a.weight,gain=nn.init.calculate_gain('relu'))
+        torch.nn.init.xavier_uniform_(self.conv43.weight,gain=nn.init.calculate_gain('relu'))
+        torch.nn.init.xavier_uniform_(self.conv43a.weight,gain=nn.init.calculate_gain('relu'))
+
+
+        torch.nn.init.xavier_uniform_(self.t_conv41.weight,gain=nn.init.calculate_gain('relu'))
+        torch.nn.init.xavier_uniform_(self.t_conv42.weight,gain=nn.init.calculate_gain('relu'))
+        torch.nn.init.xavier_uniform_(self.t_conv43.weight,gain=nn.init.calculate_gain('relu'))
+
         torch.nn.init.xavier_uniform_(self.t_conv4.weight,gain=nn.init.calculate_gain('relu'))
+        torch.nn.init.xavier_uniform_(self.t_conv3.weight,gain=nn.init.calculate_gain('relu'))
+        torch.nn.init.xavier_uniform_(self.t_conv2.weight,gain=nn.init.calculate_gain('relu'))
+        torch.nn.init.xavier_uniform_(self.t_conv1.weight,gain=nn.init.calculate_gain('relu'))
 
 
 
     def forward(self, x):
+        x = nn.ReLU()(self.conv1(x)) 
+        x = self.pool(x)
+        x = self.lrn(x)
+        #print(x.size()) #[64, 128, 128]
+        x = nn.ReLU()(self.conv2(x))
+        x = nn.ReLU()(self.conv2a(x))
+        x = self.lrn(x)
+        x = self.pool(x)
+        #print(x.size()) #[192, 64, 64]
+        x = nn.ReLU()(self.conv3(x))
+        x = nn.ReLU()(self.conv3a(x))
+        x = self.pool(x)
+        #print(x.size()) #[384,32,32]
+        x = nn.ReLU()(self.conv4(x))
+        x = nn.ReLU()(self.conv4a(x))
+        #print(x.size()) #[256,32,32]
+        if(self.layer_amount > 4):
+            x = nn.ReLU()(self.conv5(x))
+            x = nn.ReLU()(self.conv5a(x))
+            #print(x.size())
+            if(self.layer_amount > 5):
+                    x = nn.ReLU()(self.conv6(x))
+                    x = nn.ReLU()(self.conv6a(x))
+                    #print(x.size())
+        if(self.layer_size == 128):
+            x = nn.ReLU()(self.conv41(x))
+            x = nn.ReLU()(self.conv41a(x))
+            #[128,32,32]
+        elif(self.layer_size == 64):
+            x = nn.ReLU()(self.conv42(x))
+            x = nn.ReLU()(self.conv42a(x))
+            #[64,32,32]
+        elif(self.layer_size == 32):
+            x = nn.ReLU()(self.conv43(x))
+            x = nn.ReLU()(self.conv43a(x))
+            #[32,32,32]
+        #print(x.size()) #[layer_size,32,32]
+        x = self.pool(x)
+        #print(x.size()) #[layer_size,16,16]
+        h=self.fl(x)
+        x=self.unfl(h)
+        if(self.layer_size == 128):
+            x = nn.ReLU()(self.t_conv41(x))
+        elif(self.layer_size == 64):
+            x = nn.ReLU()(self.t_conv42(x))
+        elif(self.layer_size == 32):
+            x = nn.ReLU()(self.t_conv43(x))
+        #print(x.size()) #[layer_size,16,16]
+        x = nn.ReLU()(self.t_conv4(x))
+        #print(x.size()) #[384,32,32]
+        x = nn.ReLU()(self.t_conv3(x))
+        #print(x.size()) #[192,64,64]
+        x = nn.ReLU()(self.t_conv2(x))
+        #print(x.size()) #[64,128,128]
+        x = nn.ReLU()(self.t_conv1(x))
+        #print(x.size()) #[1,512,512]
+        x = nn.Sigmoid()(x)
+        #print(x.size())
+              
+        return x
+
+    def encode(self,x):
         x = nn.ReLU()(self.conv1(x))
         x = self.pool(x)
+        x = self.lrn(x)
         #print(x.size())
         x = nn.ReLU()(self.conv2(x))
         x = nn.ReLU()(self.conv2a(x))
+        x = self.lrn(x)
         x = self.pool(x)
         #print(x.size())
         x = nn.ReLU()(self.conv3(x))
@@ -113,44 +205,19 @@ class facenetAE(nn.Module):
             if(self.layer_amount > 5):
                     x = nn.ReLU()(self.conv6(x))
                     x = nn.ReLU()(self.conv6a(x))
+        if(self.layer_size == 128):
+            x = nn.ReLU()(self.conv41(x))
+            x = nn.ReLU()(self.conv41a(x))
+        elif(self.layer_size == 64):
+            x = nn.ReLU()(self.conv42(x))
+            x = nn.ReLU()(self.conv42a(x))
+        elif(self.layer_size == 32):
+            x = nn.ReLU()(self.conv43(x))
+            x = nn.ReLU()(self.conv43a(x))
         x = self.pool(x)
         #print(x.size())
         h=self.fl(x)
-        x=self.unfl(h)
-        x = nn.ReLU()(self.t_conv4(x))
-        x = nn.ReLU()(self.t_conv3(x))
-        #print(x.size())
-        x = nn.ReLU()(self.t_conv2(x))
-        x = nn.ReLU()(self.t_conv1(x))
-        #print(x.size())
-        x = nn.Sigmoid()(x)
-        #print(x.size())
-              
-        return x
-
-    def encode(self,x):
-        x = nn.ReLU()(self.conv1(x))
-        x = self.pool(x)
-        #print(x.size())
-        x = nn.ReLU()(self.conv2(x))
-        x = nn.ReLU()(self.conv3(x))
-        x = self.pool(x)
-        #print(x.size())
-        x = nn.ReLU()(self.conv4(x))
-        x = nn.ReLU()(self.conv5(x))
-        x = self.pool(x)
-        #print(x.size())
-        x = nn.ReLU()(self.conv6(x))
-        x = nn.ReLU()(self.conv7(x))
-        if(self.layer_amount > 4):
-            x = nn.ReLU()(self.conv5(x))
-            x = nn.ReLU()(self.conv5a(x))
-            if(self.layer_amount > 5):
-                    x = nn.ReLU()(self.conv6(x))
-                    x = nn.ReLU()(self.conv6a(x))
-        x = self.pool(x)
-        h=self.fl(x)
-        return h
+        return(h)
 
 def loss_fn(recon_x, x):   # defining loss function for va-AE (loss= reconstruction loss + KLD (to analyse if we have normal distributon))
     a = round(torch.min(recon_x).item(),5)
@@ -168,18 +235,22 @@ def loss_fn(recon_x, x):   # defining loss function for va-AE (loss= reconstruct
         return 0,0,0
 
 class WhaleDataset(Dataset):
-  def __init__(self,imagelist,img_size):
+  def __init__(self,imagelist,img_size,path="../data/kaggle/"):
     self.transform = transform
     self.imagelist = imagelist
     self.img_size = img_size
+    self.path = path
 
   def __len__(self):
     return(len(self.imagelist))
+
   def __getitem__(self,idx):
     if torch.is_tensor(idx):
       idx = idx.tolist()
-    img_name = self.imagelist[idx]
-    image = io.imread(img_name,as_gray=True)
+    img_name = self.imagelist[idx][0]
+    x1,y1,x2,y2 = self.imagelist[idx][1]
+    image = io.imread(str(self.path + img_name),as_gray=True)
+    image = image[y1:y2,x1:x2] #CROPPING
     image = transform.resize(image,(self.img_size,self.img_size))
     image = transforms.ToTensor()(image)
     return image
@@ -187,52 +258,88 @@ class WhaleDataset(Dataset):
   def getImageAndName(self,idx):
     if torch.is_tensor(idx):
       idx = idx.tolist()
-    img_name = self.imagelist[idx]
-    image = io.imread(img_name,as_gray=True)
+    img_name = self.imagelist[idx][0]    
+    x1,y1,x2,y2 = self.imagelist[idx][1]
+    image = io.imread(str(self.path + img_name),as_gray=True)
+    image = image[y1:y2,x1:x2] #CROPPING
     image = transform.resize(image,(self.img_size,self.img_size))
     image = torch.from_numpy(np.array([[image],[image]]))
     #image = transforms.ToTensor()(image)
     return image,img_name
+
+  def getImageAndAll(self,idx):
+    if torch.is_tensor(idx):
+      idx = idx.tolist()
+    img_name = self.imagelist[idx][0]    
+    x1,y1,x2,y2 = self.imagelist[idx][1]
+    image = io.imread(str(self.path + img_name),as_gray=True)
+    image = image[y1:y2,x1:x2] #CROPPING
+    image = transform.resize(image,(self.img_size,self.img_size))
+    image = torch.from_numpy(np.array([[image]]))
+    tag = ""
+    if len(self.imagelist[idx])>2:
+        tag = self.imagelist[idx][2]
+    return image,img_name,self.imagelist[idx][1],tag
     
   def getNameForIDX(self,idx):
     if torch.is_tensor(idx):
       idx = idx.tolist()
-    img_name = self.imagelist[idx]
+    img_name = self.imagelist[idx][0]
     return img_name
 
-def getDatasets(path,batch_size,validation_split=1/3):
+def getDatasets(filepath,batch_size,validation_split=1/3,reduction=1):
     size = 512
-    imagelist = glob.glob(path+str("*.jpg"))
-    random.shuffle(imagelist)
-    validation_amount = int(len(imagelist)*validation_split)
-    validation_set = imagelist[:validation_amount]
-    training_set = imagelist[validation_amount:]
+    set_raw = []
+    with open(filepath, newline='') as csvfile:
+        reader = csv.reader(csvfile, delimiter=',')
+        for row in reader:
+                name = str(row[0])
+                box = (str(row[1])[1:-1]).split(",")
+                bbox = [int(b) for b in box]
+                set_raw.append([name,bbox])
+    random.shuffle(set_raw)
+    set_raw_len  = int(len(set_raw)*reduction)
+    validation_amount = int(set_raw_len*validation_split)
+    validation_set = set_raw[:validation_amount]
+    training_set = set_raw[validation_amount:set_raw_len]
     whales = WhaleDataset(imagelist=training_set,img_size=size)
     vhales = WhaleDataset(imagelist=validation_set,img_size=size)
     train_loader = torch.utils.data.DataLoader(whales, batch_size=batch_size,  num_workers=2,shuffle=True)
     val_loader = torch.utils.data.DataLoader(vhales, batch_size=batch_size,  num_workers=2,shuffle=True)
     return train_loader, val_loader
 
-def getMISTDatasets(batch_size):
-    transformer = transforms.Compose([transforms.ToTensor()])
-    trainset=datasets.MNIST(root='data', train=True, download=True, transform=transformer)
-    testset=datasets.MNIST(root='data', train=False, download=True, transform=transformer)
-    train_loader = torch.utils.data.DataLoader(trainset, batch_size=batch_size, num_workers=0)
-    test_loader = torch.utils.data.DataLoader(testset, batch_size=batch_size, num_workers=0)
-    return train_loader, test_loader
+class EarlyStopper(): #patience is amount of validations to wait without loss improvment before stopping, delta is the necessary amount of improvement
+    def __init__(self,patience,delta,save_path,save):
+        self.patience = patience
+        self.patience_counter = 0
+        self.delta = delta
+        self.save_path = save_path
+        self.best_loss = -1
+        self.save = save
+
+    def earlyStopping(self,loss,model):
+        if self.best_loss == -1 or loss < self.best_loss - self.delta : #case loss decreases
+            self.best_loss = loss
+            if self.save:
+                torch.save(model,str(self.save_path))
+            self.patience_counter = 0
+            return False
+        else: #case loss remains the same or increases
+            self.patience_counter += 1
+            if self.patience_counter >= self.patience:
+                return True
 
 
-def trainNet(epochs,learning_rate,batch_size,save,data_path):
+def trainNet(epochs,learning_rate,batch_size,data_path,layers,layer_size,save=True):
     #writer = SummaryWriter('whales')
     #DATA
-    train_loader,val_loader = getDatasets("../data/train/crops/",batch_size) #../data/train/crops/",batch_size)
-    #dataiter = iter(train_loader)
-    #images = dataiter.next()
+    train_loader,val_loader = getDatasets(data_path,batch_size) #../data/train/crops/",batch_size)
     #MODEL
-    model = facenetAE(layer_amount=6).cuda()
+    model = facenetAE(layer_amount=layers,layer_size=layer_size).cuda()
+    #EARLY STOPPER
+    es = EarlyStopper(10,0.1,str("AE_earlystopsave_" + str(layers) + "_" + str(layer_size)),save)
     #writer.add_graph(model,images)
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-    #loss = nn.BCEWithLogitsLoss()
     model.train()
     #TRAINING
     training_losses = []
@@ -244,11 +351,10 @@ def trainNet(epochs,learning_rate,batch_size,save,data_path):
             inputs = inputs.float().cuda()
             outputs = model(inputs)
             BCE = loss_fn(outputs, inputs)
-            #bcel = loss(outputs.float(),inputs.float())
             BCE.backward() 
             optimizer.step()
             total_train_loss += BCE
-        print("train loss " + str(total_train_loss.detach().cpu().item()))
+        #print("train loss " + str(total_train_loss.detach().cpu().item()))
         #VALIDATION 
         if epoch % 10 == 0: 
             model.eval()
@@ -257,26 +363,26 @@ def trainNet(epochs,learning_rate,batch_size,save,data_path):
                 for vinputs in val_loader:
                     vinputs = vinputs.float().cuda()
                     val_outputs = model(vinputs)
-                    vBCE  = loss_fn(val_outputs, vinputs)
+                    vBCE  = loss_fn(val_outputs,vinputs)
                     total_val_loss += vBCE
-                    image  =val_outputs[0,0].cpu().detach()
+                    #image  =val_outputs[0,0].cpu().detach()
                     #io.imsave("test_images/set/outputs/output_" + str(epoch) + ".jpg", (color.grey2rgb(image)*255).astype(np.uint8))
-            model.train() #reset to train
             validation_losses.append(total_val_loss.detach().cpu().item())
-            print("Epoch " + str(epoch) + " with val loss " + str(validation_losses[-1]))
+            #print("Epoch " + str(epoch) + " with val loss " + str(validation_losses[-1]))
+            model.train() #reset to train
+            stop = es.earlyStopping(total_val_loss,model)
             #EARLY STOPPING
-            if False: #len(validation_losses) > 2 and ((validation_losses[-1] - validation_losses[-2]) > 0.1 or round(validation_losses[-3],5) == round(validation_losses[-1],5)):
+            if stop:
                 print("TRAINING FINISHED AFTER " + str(epoch) + " EPOCHS. K BYE.")
                 break
-            else:
-                if save:
-                    torch.save(model,str("modelsave_t_"+str(epoch)+"e")) #makes sure to save before validation loss increases
         training_losses.append(total_train_loss.detach().cpu().item()) 
+        stop_epoch = epoch
     #writer.close()
-    #SAVE LOSSES TO FILE
+    #SAVE LOSSES TO FILEs
     if save:
-        filename = str("losses_t.txt")
+        filename = str("AE_losses_" + str(layers)+ "_" + str(layer_size) +".txt")
         file=open(filename,'w')
+        file.write("trained with learning rate " + str(learning_rate) + ", batch size " + str(batch_size) + ", planned epochs " + str(epochs) + " but only took " + str(stop_epoch) + " epochs.")
         file.write("training_losses")
         file.write('\n')
         for element in training_losses:
@@ -289,82 +395,129 @@ def trainNet(epochs,learning_rate,batch_size,save,data_path):
             file.write('\n')   
         file.close()
 
-def getAndSaveOutputs(image_path,network_path=None):
-    imagelist = glob.glob(image_path + str("*.jpg"))
+def getAndSaveOutputs(filepath,network_path=None):
+    imagelist = []
+    with open(filepath, newline='') as csvfile:
+        reader = csv.reader(csvfile, delimiter=',')
+        for row in reader:
+            name = str(row[0])
+            box = (str(row[1])[1:-1]).split(",")
+            bbox = [int(b) for b in box]
+            imagelist.append([name,bbox])
     dataset = WhaleDataset(imagelist,512)
     encoding_ids = None
     encodings = np.array([])
     if network_path:
         model = torch.load(network_path)
     else:
-        model = facenet()
+        model = facenetAE()
     for i in range(len(dataset)):
         img, img_name = dataset.getImageAndName(i)
-        output,mu,logvar = model.forward(img.float().cuda())
+        output = model.forward(img.float().cuda())
         imagename = img_name.split("/")[-1]
         image  =output[0,0].cpu().detach()
-        io.imsave(image_path + "outputs/" + imagename, (color.grey2rgb(image)*255).astype(np.uint8))
-        print(image_path + "outputs/" + imagename)
+        io.imsave("./trial_run/output_ae4l/" + imagename, (color.grey2rgb(image)*255).astype(np.uint8))
+        print("./trial_run/output_ae4l/" + imagename)
 
-def getAndSaveEncodings(image_path,network_path=None):
-    imagelist = glob.glob(image_path + str("*.jpg"))
+def getAndSaveEncodings(filepath,network_path=None):
+    imagelist = []
+    with open(filepath, newline='') as csvfile:
+        reader = csv.reader(csvfile, delimiter=',')
+        for row in reader:
+            name = str(row[0])
+            box = (str(row[1])[1:-1]).split(",")
+            bbox = [int(b) for b in box]
+            tag = ""
+            if(len(row)>2):
+                tag = str(row[2])
+            imagelist.append([name,bbox,tag])
     dataset = WhaleDataset(imagelist,512)
-    encoding_ids = None
+    #encoding_ids = np.array([])
     encodings = np.array([])
     if network_path:
         model = torch.load(network_path)
     else:
-        model = facenet()
+        model = facenetAE()
     for i in range(len(dataset)):
-        img, img_name = dataset.getImageAndName(i)
-        encoding = model.encode(img)
-        print(i)
-        eco=encoding[0,:,:,:].detach().cpu().numpy()
+        img, img_name, bbox, tag = dataset.getImageAndAll(i)
+        encoding = model.encode(img.float().cuda())
+        eco=encoding.detach().cpu().numpy()
         if i == 0:
-            encodings = np.array([eco])
-            encoding_ids = np.array([img_name])
+            encodings = np.array(eco)
+            encoding_ids = [[img_name,str(bbox),tag]]#np.array([img_name,bbox,tag])
         else:
-            encodings = np.append(encodings,[eco],axis=0)
-            encoding_ids = np.append(encoding_ids,[img_name],axis=0)
-    with open('encodings.npy', 'wb') as f:
+            encodings = np.append(encodings,eco,axis=0)
+            encoding_ids.append([img_name,str(bbox),tag])# = np.append(encoding_ids,[img_name,str(bbox),tag],axis=0)
+        #if i%1000 == 0:
+            #print(i)
+    e_ids = np.array(encoding_ids)
+    with open('ae_test_encodings.npy', 'wb') as f:
         np.save(f, encodings)
-    with open('encoding_ids.npy','wb') as f:
+    with open('ae_test_encoding_ids.npy','wb') as f:
         np.save(f,encoding_ids)
     #return encodings
 
-
+def evalSet(filepath,network_path=None):
+    #get data
+    imagelist = []
+    with open(filepath, newline='') as csvfile:
+        reader = csv.reader(csvfile, delimiter=',')
+        for row in reader:
+            name = str(row[0])
+            box = (str(row[1])[1:-1]).split(",")
+            bbox = [int(b) for b in box]
+            imagelist.append([name,bbox])
+    dataset = WhaleDataset(imagelist,512)
+    loader = torch.utils.data.DataLoader(dataset, batch_size=2,num_workers=2)
+    #get model
+    if network_path:
+        model = torch.load(network_path)
+    else:
+        model = facenetAE()
+    #calculate loss
+    total_loss = 0
+    for inputs in loader:
+        inputs = inputs.float().cuda()
+        outputs = model(inputs)
+        BCE  = loss_fn(outputs,inputs)
+        total_loss += BCE.detach().cpu().item()
+    print("Total loss for testset is: " + str(total_loss))
 
 def objective(trial):
-    epochs = 100
+    epochs = 1000
     #learning_rate =trial.suggest_loguniform("learning_rate", 1e-5, 1e-3)
     #batch_size = trial.suggest_int("batch_size",8,32,8)
-    learning_rate = 0.001
-    batch_size = 16
-    layer_amount = trial.suggest_int("layer_amount",4,6,1)
+    learning_rate = 0.0001
+    batch_size = 8
+    layer_amount = 4#trial.suggest_int("layer_amount",4,6,1)
+    layer_size = trial.suggest_categorical("layer_size",[32,64,128,256])
     #print("BATCH SIZE: " + str(batch_size))
     print("Layer amount: " + str(layer_amount))
+    print("Layer size: " + str(layer_size))
     #DATA
-    train_loader,val_loader = getDatasets("../data/train/crops/",batch_size)
+    train_loader,val_loader = getDatasets("../data/trainingset_final.csv",batch_size,1/3,reduction=0.25)
     #MODEL
-    model = facenet(layer_amount).cuda()
+    model = facenetAE(layer_amount=layer_amount,layer_size=layer_size).cuda()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     #loss = nn.BCEWithLogitsLoss()
     model.train()
     #TRAINING
     training_losses = []
     validation_losses = []
+    es = EarlyStopper(10,0.1,str("AE_earlystopsave_" + str(layer_amount) + "_" + str(layer_size)),False)
     for epoch in range(epochs):
         total_train_loss = 0
+        model.train()
         for inputs in train_loader:
             optimizer.zero_grad()
             inputs = inputs.float().cuda()
-            outputs, mu, logvar = model(inputs)
-            BCEKLD, BCE, KLD = loss_fn(outputs, inputs,mu,logvar)
+            outputs = model(inputs)
+            BCE= loss_fn(outputs, inputs)
             #bcel = loss(outputs.float(),inputs.float())
-            BCEKLD.backward() 
+            BCE.backward() 
             optimizer.step()
-            total_train_loss += BCEKLD
-        print("train loss " + str(total_train_loss.detach().cpu().item()))
+            total_train_loss += BCE
+        #print("train loss " + str(total_train_loss.detach().cpu().item()))
         #VALIDATION 
         if epoch % 10 == 0: 
             model.eval()
@@ -372,18 +525,25 @@ def objective(trial):
                 total_val_loss = 0
                 for vinputs in val_loader:
                     vinputs = vinputs.float().cuda()
-                    val_outputs,vmu,vlogvar = model(vinputs)
-                    vBCEKLD, vBCE, vKLD  = loss_fn(val_outputs, vinputs,vmu,vlogvar)
-                    total_val_loss += vBCEKLD
-                    image  =val_outputs[0,0].cpu().detach()
+                    val_outputs = model(vinputs)
+                    vBCE  = loss_fn(val_outputs, vinputs)
+                    total_val_loss += vBCE
+            validation_losses.append(total_val_loss.detach().cpu().item())
+            print(str(epoch) + "  " + str(total_val_loss.detach().cpu().item()))
+            stop = es.earlyStopping(total_val_loss,model)
+            #EARLY STOPPING
+            if stop:
+                print("TRAINING FINISHED AFTER " + str(epoch) + " EPOCHS. K BYE.")
+                break
         training_losses.append(total_train_loss.detach().cpu().item()) 
-        trial.report(total_train_loss,epoch)
+        trial.report(total_val_loss,epoch)
     #if not final_loss:
-    final_loss = training_losses[-1]
+    final_loss = validation_losses[-1]
     #WRITE OPTIM 
     filename = str("optim.txt")
-    file=open(filename,'w')
+    file=open(filename,'a')
     file.write("layer_amount:" + str(layer_amount))
+    file.write("layer_size:" + str(layer_size))
     file.write("final_loss:" + str(final_loss))  
     file.close()
     return final_loss
@@ -392,7 +552,7 @@ def objective(trial):
 def main():
     torch.cuda.set_device(0)
     study = optuna.create_study(direction="minimize")
-    study.optimize(objective,n_trials=100)
+    study.optimize(objective,n_trials=5)
 
     pruned_trials = [t for t in study.trials if t.state == optuna.trial.TrialState.PRUNED]
     complete_trials = [t for t in study.trials if t.state == optuna.trial.TrialState.COMPLETE]
@@ -419,9 +579,13 @@ def main3():
     trainNet(epochs=100,learning_rate=0.001,batch_size=32,save=True,data_path="test_images/set/")
 
 def main4():
-	getAndSaveOutputs("test_images/","modelsave_t_230e")
+	getAndSaveOutputs("../data/trial_run_test.csv","AE_earlystopsave_4")
 
 if __name__ == "__main__":
     torch.cuda.empty_cache()
-    main3()
+    main()
+    #main4()
+    #getAndSaveEncodings("../data/trainingset_final.csv","AE_earlystopsave_4")
+    #evalSet("../data/testset_final.csv","AE_earlystopsave_4")
+    #trainNet(epochs=1,learning_rate=0.0001,batch_size=8,data_path="../data/trainingset_final.csv",layers=4)
     

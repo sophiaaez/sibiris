@@ -12,3 +12,11 @@ flukeembeddings = embedFlukes(flukes) #dummy function
 #find closest but loop coz user interaction iterative
 for f in flukeembeddings:
     closest = findClosestFluke(f,10) #dummy function
+    #decipher the label = [imagepath, bounding box, individual id] and distances
+    #show cropped images with imagepath, individual id and distance
+    #get to user input
+    if alreadyKnown = True:
+        #add to dataset with known individual id
+    else: 
+        #ask for new individual id
+        #add to dataset with new individual id

@@ -12,12 +12,47 @@ def relativeToAbsolute(x,y,w,h,o_x,o_y):
     n_h = float(h)*float(o_y)
     return(n_x,n_y,n_w,n_h)
 
-def fakeCropAllInFolder(folder,cfgpath,weightpath,obj):
+def fakeCropAllInFolder(folder,cfgpath,weightpath,objpath):
   imagelist = glob.glob(str(folder + "*.jpg"))
   imagelist.extend(glob.glob(str(folder + "*.JPG")))
   imagelist.extend(glob.glob(str(folder + "*.jpeg")))
   imagelist.extend(glob.glob(str(folder + "*.JPEG")))
   delimiter = '/'
+
+  path = "./test_cropped.csv"
+  net = Detector(bytes(cfgpath, encoding="utf-8"), bytes(weightpath, encoding="utf-8"), 0, bytes(objpath,encoding="utf-8"))
+  counter = 0
+  rows = []
+
+  for i in imagelist:
+    counter += 1
+    img = cv2.imread(i)
+    img_darknet = Image(img)
+    results = net.detect(img_darknet)
+    for cat, score, bounds in results:
+      x,y,w,h= bounds
+      y1 = max(int(y-h/2),0)
+      y2 = min(int(y+h/2),img.shape[0])
+      x1 = max(int(x-w/2),0)
+      x2 = min(int(x+w/2),img.shape[1])
+      rows.append([i,[x1,y1,x2,y2]])
+    if counter %1000 == 0:
+      print(counter)
+      with open(path, "a") as myfile:
+        wr = csv.writer(myfile)
+        for r in rows:
+          wr.writerow(r)
+      rows = []
+
+def fakeCropAllInFolderAFTER(folder,cfgpath,weightpath,objpath,after):
+  imagelist = glob.glob(str(folder + "*.jpg"))
+  imagelist.extend(glob.glob(str(folder + "*.JPG")))
+  imagelist.extend(glob.glob(str(folder + "*.jpeg")))
+  imagelist.extend(glob.glob(str(folder + "*.JPEG")))
+  delimiter = '/'
+  index = imagelist.index(after)
+  imagelist = imagelist[index+1:]
+  print(len(imagelist))
 
   path = "./train_cropped.csv"
   net = Detector(bytes(cfgpath, encoding="utf-8"), bytes(weightpath, encoding="utf-8"), 0, bytes(objpath,encoding="utf-8"))
@@ -43,6 +78,12 @@ def fakeCropAllInFolder(folder,cfgpath,weightpath,obj):
         for r in rows:
           wr.writerow(r)
       rows = []
+  with open(path, "a") as myfile:
+        wr = csv.writer(myfile)
+        for r in rows:
+          wr.writerow(r)
+
+
 
 
 def cropAllInFolder(folder,cfgpath,weightpath,objpath,objnamespath):
@@ -149,7 +190,8 @@ def test():
   print("TEST COMPLETED")
 
 def main():
-  fakeCropAllInFolder("../data/train/","yolo-obj.cfg","yolo-obj_1500.weights","obj.data","data/obj.names")
+  #fakeCropAllInFolderAFTER("../data/test/","yolo-obj.cfg","yolo-obj_1500.weights","obj.data","../data/test/dff8065d4.jpg")
+  #fakeCropAllInFolderAFTER("../data/kaggle/","yolo-obj.cfg","yolo-obj_1500.weights","obj.data","../data/kaggle/fc0980b84.jpg")
 
 if __name__ == "__main__":
     main()

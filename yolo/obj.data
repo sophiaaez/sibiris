@@ -1,5 +1,5 @@
 classes= 2
 train = data/train.txt
 valid = data/valid.txt
-names = yolo/data/obj.names
+names = data/obj.names
 backup = backup/

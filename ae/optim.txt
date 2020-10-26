@@ -1,0 +1,64 @@
+layer_amount:4layer_size:32final_loss:116.23004150390625
+layer_amount:4layer_size:32final_loss:116.54183959960938
+layer_amount:4layer_size:32final_loss:116.6215591430664
+layer_amount:4layer_size:32final_loss:116.13153076171875
+layer_amount:4layer_size:32final_loss:116.40879821777344
+116.382                                                     M
+layer_amount:4layer_size:64final_loss:115.3435287475586     NN
+layer_amount:4layer_size:64final_loss:115.64640045166016
+115.49                                                      MMMM
+layer_amount:4layer_size:128final_loss:131.004638671875     X
+131.0
+layer_amount:4layer_size:256final_loss:131.004638671875     X
+layer_amount:4layer_size:256final_loss:131.004638671875     X
+131.0
+
+layer_amount:5layer_size:32final_loss:115.68644714355469
+layer_amount:5layer_size:32final_loss:115.64488220214844
+layer_amount:5layer_size:32final_loss:115.94160461425781
+115.753                                                     MMM
+layer_amount:5layer_size:64final_loss:116.18443298339844    
+layer_amount:5layer_size:64final_loss:131.004638671875
+layer_amount:5layer_size:64final_loss:115.45475006103516    N
+120.87
+layer_amount:5layer_size:128final_loss:131.004638671875     X
+layer_amount:5layer_size:128final_loss:116.1103515625
+132.555
+layer_amount:5layer_size:256final_loss:131.004638671875     X
+layer_amount:5layer_size:256final_loss:115.89483642578125
+123.445
+
+layer_amount:6layer_size:32final_loss:116.07611846923828
+layer_amount:6layer_size:32final_loss:115.41001892089844    N
+layer_amount:6layer_size:32final_loss:131.004638671875      X
+layer_amount:6layer_size:32final_loss:131.004638671875      X
+layer_amount:6layer_size:32final_loss:116.76448822021484
+layer_amount:6layer_size:32final_loss:116.84110260009766
+121.18
+layer_amount:6layer_size:64final_loss:116.30879974365234
+layer_amount:6layer_size:64final_loss:131.004638671875      X
+123.65
+layer_amount:6layer_size:128final_loss:115.72669219970703   
+layer_amount:6layer_size:128final_loss:116.45642852783203
+layer_amount:6layer_size:128final_loss:115.83318328857422   
+layer_amount:6layer_size:128final_loss:116.09712219238281
+116.02                                                      MM
+layer_amount:6layer_size:256final_loss:116.10531616210938
+layer_amount:6layer_size:256final_loss:116.2574691772461
+layer_amount:6layer_size:256final_loss:115.33038330078125   NNN
+layer_amount:6layer_size:256final_loss:116.3560562133789
+layer_amount:6layer_size:256final_loss:115.4224853515625    N
+layer_amount:6layer_size:256final_loss:116.23483276367188
+layer_amount:6layer_size:256final_loss:116.31653594970703
+layer_amount:6layer_size:256final_loss:131.004638671875     X
+layer_amount:6layer_size:256final_loss:115.68316650390625
+layer_amount:6layer_size:256final_loss:116.09864044189453
+layer_amount:6layer_size:256final_loss:115.14268493652344   NNNN
+layer_amount:6layer_size:256final_loss:131.004638671875     X
+layer_amount:6layer_size:256final_loss:116.0267333984375
+layer_amount:6layer_size:256final_loss:115.47773742675781   N
+layer_amount:6layer_size:256final_loss:116.0113296508789
+117.89
+
+best overall:layer_amount:6layer_size:256final_loss:115.14268493652344
+best mean: layer_amount:4layer_size:64final_loss: 115.49  
