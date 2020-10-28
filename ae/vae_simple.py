@@ -529,12 +529,12 @@ def objective(trial):
     #batch_size = trial.suggest_int("batch_size",8,32,8)
     learning_rate = 0.0001
     batch_size = 8
-    layer_amount = trial.suggest_int("layer_amount",4,6,1)
-    layer_size = trial.suggest_categorical("layer_size",[32,64,128,256])
-    beta = 1 #trial.suggest_int("beta",1,20,1)
-    print("Layer amount: " + str(layer_amount))
-    print("Layer size: " + str(layer_size))
-    #print("Beta: " + str(beta))
+    layer_amount = 4 #trial.suggest_int("layer_amount",4,6,1)
+    layer_size = 128 #trial.suggest_categorical("layer_size",[32,64,128,256])
+    beta = trial.suggest_int("beta",1,20,1)
+    #print("Layer amount: " + str(layer_amount))
+    #print("Layer size: " + str(layer_size))
+    print("Beta: " + str(beta))
     #DATA
     train_loader,val_loader = getDatasets("../data/trainingset_final.csv",batch_size,1/3,reduction=0.25)
     #MODEL
@@ -571,7 +571,7 @@ def objective(trial):
             print(str(epoch) + "  " + str(total_val_loss.detach().cpu().item()))
             stop = es.earlyStopping(total_val_loss,model)
             #EARLY STOPPING
-            if stop:
+            if stop or (int(total_val_loss.detach().cpu().item())) == 131:
                 print("TRAINING FINISHED AFTER " + str(epoch) + " EPOCHS. K BYE.")
                 break
         training_losses.append(total_train_loss.detach().cpu().item()) 
@@ -592,7 +592,7 @@ def objective(trial):
 def main():
     torch.cuda.set_device(0)
     study = optuna.create_study(direction="minimize")
-    study.optimize(objective,n_trials=30)
+    study.optimize(objective,n_trials=10)
 
     pruned_trials = [t for t in study.trials if t.state == optuna.trial.TrialState.PRUNED]
     complete_trials = [t for t in study.trials if t.state == optuna.trial.TrialState.COMPLETE]
@@ -616,7 +616,7 @@ def main2():
     getAndSaveEncodings("../data/train/crops/")
 
 def main3():
-    trainNet(epochs=20,learning_rate=0.0001,batch_size=8,data_path="../data/trainingset_final.csv",layers=4)
+    trainNet(epochs=20,learning_rate=0.0001,batch_size=8,data_path="../data/trainingset_final.csv",layers=4,save=True)
 
 def main4():
 

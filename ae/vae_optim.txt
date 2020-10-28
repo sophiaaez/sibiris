@@ -64,3 +64,14 @@ layer_amount:6layer_size:256beta:1final_loss:125.58546447753906
 best overall: layer_amount:6layer_size:256beta:1final_loss:124.65181732177734   
 best mean: layer_amount:6layer_size:32beta:1final_loss: 125.24 
 best single mean: layer_amount:4layer_size:32beta:1final_loss: 124.90   
+
+layer_amount:4layer_size:128beta:7final_loss:128.69923400878906
+layer_amount:4layer_size:128beta:11final_loss:129.0149383544922
+layer_amount:4layer_size:128beta:17final_loss:128.8739013671875
+layer_amount:4layer_size:128beta:15final_loss:131.004638671875
+layer_amount:4layer_size:128beta:13final_loss:128.44810485839844 BEST
+layer_amount:4layer_size:128beta:5final_loss:128.76617431640625
+layer_amount:4layer_size:128beta:15final_loss:128.56639099121094
+layer_amount:4layer_size:128beta:7final_loss:128.9346923828125
+layer_amount:4layer_size:128beta:20final_loss:128.93467712402344
+layer_amount:4layer_size:128beta:6final_loss:131.004638671875
