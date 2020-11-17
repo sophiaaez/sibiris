@@ -122,6 +122,7 @@ class facenetAE(nn.Module):
 
 
     def forward(self, x):
+        print(x.size())
         x = nn.ReLU()(self.conv1(x)) 
         x = self.pool(x)
         x = self.lrn(x)
@@ -337,7 +338,7 @@ def trainNet(epochs,learning_rate,batch_size,data_path,layers,layer_size,save=Tr
     #MODEL
     model = facenetAE(layer_amount=layers,layer_size=layer_size).cuda()
     #EARLY STOPPER
-    es = EarlyStopper(10,0.1,str("AE_earlystopsave_" + str(layers) + "_" + str(layer_size)),save)
+    es = EarlyStopper(10,0.1,str("AE_earlystopsave_4"),save)
     #writer.add_graph(model,images)
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     model.train()
@@ -395,7 +396,7 @@ def trainNet(epochs,learning_rate,batch_size,data_path,layers,layer_size,save=Tr
             file.write('\n')   
         file.close()
 
-def getAndSaveOutputs(filepath,network_path=None):
+def getAndSaveOutputs(filepath,network_path=None,amount=100):
     imagelist = []
     with open(filepath, newline='') as csvfile:
         reader = csv.reader(csvfile, delimiter=',')
@@ -411,13 +412,15 @@ def getAndSaveOutputs(filepath,network_path=None):
         model = torch.load(network_path)
     else:
         model = facenetAE()
-    for i in range(len(dataset)):
+    if amount > len(dataset):
+        amount = len(dataset)
+    for i in range(amount):
         img, img_name = dataset.getImageAndName(i)
         output = model.forward(img.float().cuda())
         imagename = img_name.split("/")[-1]
         image  =output[0,0].cpu().detach()
-        io.imsave("./trial_run/output_ae4l/" + imagename, (color.grey2rgb(image)*255).astype(np.uint8))
-        print("./trial_run/output_ae4l/" + imagename)
+        io.imsave("./trial_run/output_ae/" + imagename, (color.grey2rgb(image)*255).astype(np.uint8))
+        print("./trial_run/output_ae/" + imagename)
 
 def getAndSaveEncodings(filepath,network_path=None):
     imagelist = []
@@ -451,9 +454,9 @@ def getAndSaveEncodings(filepath,network_path=None):
         #if i%1000 == 0:
             #print(i)
     e_ids = np.array(encoding_ids)
-    with open('ae_test_encodings.npy', 'wb') as f:
+    with open('ae_training_encodings.npy', 'wb') as f:
         np.save(f, encodings)
-    with open('ae_test_encoding_ids.npy','wb') as f:
+    with open('ae_training_encoding_ids.npy','wb') as f:
         np.save(f,encoding_ids)
     #return encodings
 
@@ -576,14 +579,14 @@ def main2():
     getAndSaveEncodings("../data/train/crops/")
 
 def main3():
-    trainNet(epochs=100,learning_rate=0.001,batch_size=32,save=True,data_path="test_images/set/")
+    trainNet(epochs=1000,learning_rate=0.0001,batch_size=8,data_path="../data/trainingset_final.csv",layers=4,layer_size=64,save=True)
 
 def main4():
 	getAndSaveOutputs("../data/trial_run_test.csv","AE_earlystopsave_4")
 
 if __name__ == "__main__":
     torch.cuda.empty_cache()
-    main()
+    main3()
     #main4()
     #getAndSaveEncodings("../data/trainingset_final.csv","AE_earlystopsave_4")
     #evalSet("../data/testset_final.csv","AE_earlystopsave_4")

@@ -93,6 +93,31 @@ class facenet(nn.Module):
         self.t_conv2 = nn.ConvTranspose2d(192,64,2,stride=2)
         self.t_conv1 = nn.ConvTranspose2d(64, 1, 4, stride=4)
 
+        #siamese
+        self.l1 = nn.Conv2d(32, 32, 3, stride=1,padding=1)
+        self.l2 = nn.Conv2d(32, 32, 3, stride=2,padding=2)
+        self.l3 = nn.Conv2d(32, 32, 3, stride=2,padding=2)
+        self.b1d32 = nn.BatchNorm1d(32)
+        self.bn = nn.BatchNorm2d(32)
+        self.bnn = nn.BatchNorm2d(64)
+        self.bn1d = nn.BatchNorm1d(128)
+
+        self.l11 = nn.Conv2d(32, 32, 3, stride=1,padding=1)
+        self.l22 = nn.Conv2d(32, 32, 3, stride=2,padding=2)
+        self.l33 = nn.Conv2d(32, 32, 3, stride=2,padding=2) 
+
+        self.l111 = nn.Conv2d(32, 64, 3, stride=1,padding=1)
+        self.l222 = nn.Conv2d(64,64, 3, stride=2,padding=2)
+        self.l333 = nn.Conv2d(32,64, 3, stride=2,padding=2) 
+
+        self.o = nn.Conv2d(64,128,1,stride=1,padding=1)
+        self.fl = Flatten()
+        self.d = nn.Linear(4608,512)
+
+        self.c1 = nn.Linear(1024,128)
+        self.c2 = nn.Linear(128,32)
+        self.c3 = nn.Linear(32,1)
+
         torch.nn.init.xavier_uniform_(self.conv1.weight,gain=nn.init.calculate_gain('relu'))
         torch.nn.init.xavier_uniform_(self.conv2.weight,gain=nn.init.calculate_gain('relu'))
         torch.nn.init.xavier_uniform_(self.conv2a.weight,gain=nn.init.calculate_gain('relu'))
@@ -122,6 +147,18 @@ class facenet(nn.Module):
         torch.nn.init.xavier_uniform_(self.t_conv2.weight,gain=nn.init.calculate_gain('relu'))
         torch.nn.init.xavier_uniform_(self.t_conv1.weight,gain=nn.init.calculate_gain('relu'))
 
+        torch.nn.init.xavier_uniform_(self.l1.weight,gain=nn.init.calculate_gain('relu'))
+        torch.nn.init.xavier_uniform_(self.l2.weight,gain=nn.init.calculate_gain('relu'))
+        torch.nn.init.xavier_uniform_(self.l3.weight,gain=nn.init.calculate_gain('linear'))
+        torch.nn.init.xavier_uniform_(self.l11.weight,gain=nn.init.calculate_gain('relu'))
+        torch.nn.init.xavier_uniform_(self.l22.weight,gain=nn.init.calculate_gain('linear'))
+        torch.nn.init.xavier_uniform_(self.l33.weight,gain=nn.init.calculate_gain('linear'))
+        torch.nn.init.xavier_uniform_(self.l111.weight,gain=nn.init.calculate_gain('relu'))
+        torch.nn.init.xavier_uniform_(self.l222.weight,gain=nn.init.calculate_gain('linear'))
+        torch.nn.init.xavier_uniform_(self.l333.weight,gain=nn.init.calculate_gain('linear'))
+        torch.nn.init.xavier_uniform_(self.o.weight,gain=nn.init.calculate_gain('linear'))
+
+
         
     def reparameterize(self, mu, logvar):  # producing latent layer (Guassian distribution )
         std = logvar.mul(0.5).exp_()       # hint: var=std^2
@@ -137,6 +174,7 @@ class facenet(nn.Module):
 
 
     def forward(self, x):
+        #print(torch.min(x).item())
         x = nn.ReLU()(self.conv1(x)) 
         x = self.pool(x)
         x = self.lrn(x)
@@ -173,6 +211,7 @@ class facenet(nn.Module):
             x = nn.ReLU()(self.conv43(x))
             x = nn.ReLU()(self.conv43a(x))
             #[32,32,32]
+        #print(torch.min(x).item())
         #print(x.size()) #[layer_size,32,32]
         x = self.pool(x)
         #print(x.size()) #[layer_size,16,16]
@@ -197,7 +236,7 @@ class facenet(nn.Module):
         #print(x.size()) #[1,512,512]
         x = nn.Sigmoid()(x)
         #print(x.size())
-              
+        #print(torch.min(x).item())
         return x,mu,logvar
 
     def encode(self,x):
@@ -234,21 +273,77 @@ class facenet(nn.Module):
         x = self.pool(x)
         #print(x.size())
         h=self.fl(x)
-        return(h)
+        z,mu,logvar=self.bottleneck(h)
+        hz=self.fc3(z)
+        return(hz)
+
+    def forward_siamese(self,x):
+        #print(x.size())
+        x = self.unfl(x)
+        #print(x.size())
+        x1 = nn.ReLU()(self.l1(x))
+        x2 = nn.ReLU()(self.l2(x1))
+        x3 = self.l3(x)
+        x = nn.ReLU()(x2 + x3)
+        x = self.bn(x)
+
+        x1 = nn.ReLU()(self.l11(x))
+        x2 = self.l22(x1)
+        x3 = self.l33(x)
+        x = nn.ReLU()(x2 + x3)
+        x = self.bn(x)
+    
+        x1 = nn.ReLU()(self.l111(x))
+        x2 = self.l222(x1)
+        x3 = self.l333(x)
+        x = nn.ReLU()(x2 + x3)
+        x = self.bnn(x)
+
+        x = self.o(x)
+        x = self.fl(x)
+        #print(x.size())
+        x = nn.ReLU()(self.d(x))
+        
+        return x
+
+
+    def siamese(self,x1,x2):
+        o1 = self.encode(x1)
+        o2 = self.encode(x2)
+        #print(o1.size())
+        x = self.siamese_only(o1,o2)
+        return x
+
+    def siamese_only(self,o1,o2):
+        o1 = self.forward_siamese(o1)
+        o2 = self.forward_siamese(o2)
+
+        x = torch.cat((o1,o2),axis=-1)
+        x = nn.ReLU()(self.c1(x))
+        x = self.bn1d(x)
+        x = nn.Dropout2d(0.25)(x)
+        x = nn.ReLU()(self.c2(x))
+        x = self.b1d32(x)
+        x = nn.Sigmoid()(self.c3(x))
+        return x
 
 def init_weights(m): #intialises weights with normal distribution over entire network
     if type(m) == nn.Linear or type(m) == nn.Conv2d or type(m) == nn.ConvTranspose2d:
         nn.init.xavier_normal_(m.weight,gain=nn.init.calculate_gain('relu'))
 
 def loss_fn(recon_x, x, mu, logvar,beta):   # defining loss function for va-AE (loss= reconstruction loss + KLD (to analyse if we have normal distributon))
-    a = round(torch.min(recon_x).item(),5)
+    #mse = nn.MSELoss()(recon_x,x)
+    bce = F.binary_cross_entropy(recon_x, x)
+    kld = -0.5 * torch.mean(1 + logvar - mu.pow(2) - logvar.exp())
+    return bce + (beta * kld), bce,kld
+    """a = round(torch.min(recon_x).item(),5)
     b = round(torch.max(recon_x).item(),5)
     c = round(torch.min(x).item(),5)
     d = round(torch.max(x).item(),5)
     #if (a < 0.) or (b > 1.) or (c < 0.) or (d > 1.) or math.isnan(a) or math.isnan(b) or math.isnan(c) or math.isnan(d):
-        
     if (a >= 0.) and (b <= 1.) and (c >= 0.) and (d <= 1.) and not (math.isnan(a) or math.isnan(b) or math.isnan(c) or math.isnan(d)):
-        BCE = F.binary_cross_entropy(recon_x, x)
+        MSE = nn.MSE()(recon_x,x)
+        #BCE = F.binary_cross_entropy(recon_x, x)
         #BCEL = nn.BCEWithLogitsLoss(recon_x, x)
         # source: Kingma and Welling. Auto-Encoding Variational Bayes. ICLR, 2014
         # KLD is equal to 0.5 * sum(1 + log(sigma^2) - mu^2 - sigma^2)
@@ -257,7 +352,7 @@ def loss_fn(recon_x, x, mu, logvar,beta):   # defining loss function for va-AE (
     else:
         print("STOPSTOPSTOPSTOPSTOP")
         print("a" + str(a) + "b" + str(b) + "c" + str(c) + "d" + str(d))
-        return 0,0,0
+        return 0,0,0"""
 
 class WhaleDataset(Dataset):
   def __init__(self,imagelist,img_size,path="../data/kaggle/"):
@@ -278,7 +373,11 @@ class WhaleDataset(Dataset):
     image = image[y1:y2,x1:x2] #CROPPING
     image = transform.resize(image,(self.img_size,self.img_size))
     image = transforms.ToTensor()(image)
+    image = image.float().cuda()
     return image
+
+  def getDatasetSize(self):
+    return len(self.imagelist)
 
   def getImageAndName(self,idx):
     if torch.is_tensor(idx):
@@ -312,7 +411,48 @@ class WhaleDataset(Dataset):
     img_name = self.imagelist[idx][0]
     return img_name
 
-def getDatasets(filepath,batch_size,validation_split=1/3,reduction=1):
+  def getBatch(self,batch_size,idx):
+    batch = torch.tensor([])
+    for i in range(idx*batch_size,(idx+1)*batch_size):
+        if i < len(self.imagelist):
+            batch = torch.cat([batch,self.__getitem__(i)])
+        else:
+            batch = torch.cat([batch,self.__getitem__(np.random.randint(0,len(self.imagelist)))])
+    return batch.reshape((batch_size,1,self.img_size,self.img_size))
+
+  def getDoubleBatch(self,batch_size,idx): #creates a double batch of images and labels, 1/3 approx. is positive examples
+    batch1 = torch.tensor([])
+    batch2 = torch.tensor([])
+    siam_out = torch.tensor([])
+    matches = 0
+    for i in range(idx*batch_size,(idx+1)*batch_size):
+        if i < len(self.imagelist):
+            batch1 = torch.cat([batch1,self.__getitem__(i)])
+        else:
+            batch1 = torch.cat([batch1,self.__getitem__(np.random.randint(0,len(self.imagelist)))])
+        if matches <= int(batch_size/3) and not (self.imagelist[i][2] == 'new_whale') and not (self.imagelist[i][2] == ""):
+            for j in range(len(self.imagelist)):
+                if self.imagelist[i][2] == self.imagelist[j][2] and not (i == j) and not (self.imagelist[i][2] == 'new_whale') and not (self.imagelist[i][2] == ""):
+                    batch2 = torch.cat([batch2,self.__getitem__(j)])
+                    siam_out = torch.cat([siam_out,torch.tensor([1])])
+                    matches += 1
+                    break
+        if not (len(batch1) == len(batch2)):
+            j = np.random.randint(0,len(self.imagelist))
+            while i == j:
+                j = np.random.randint(0,len(self.imagelist))
+            batch2 = torch.cat([batch2,self.__getitem__(j)])
+            if self.imagelist[i][2] == self.imagelist[j][2] and not (i == j) and not (self.imagelist[i][2] == 'new_whale') and not (self.imagelist[i][2] == ""):
+                siam_out = torch.cat([siam_out,torch.tensor([0])])
+                matches += 1
+            else:
+                siam_out = torch.cat([siam_out,torch.tensor([0])])
+    batch1 = batch1.reshape((batch_size,1,self.img_size,self.img_size))
+    batch2 = batch2.reshape((batch_size,1,self.img_size,self.img_size))
+    siam_out = siam_out.reshape((batch_size,1))
+    return(batch1.float().cuda(),batch2.float().cuda(),siam_out.float().cuda())
+
+def getDatasets(filepath,batch_size,validation_split=1/3,reduction=0.5):
     size = 512
     set_raw = []
     with open(filepath, newline='') as csvfile:
@@ -321,7 +461,11 @@ def getDatasets(filepath,batch_size,validation_split=1/3,reduction=1):
                 name = str(row[0])
                 box = (str(row[1])[1:-1]).split(",")
                 bbox = [int(b) for b in box]
-                set_raw.append([name,bbox])
+                if len(row) == 2:
+                    label = ""
+                elif len(row) == 3:
+                    label = str(row[2])
+                set_raw.append([name,bbox,label])
     random.shuffle(set_raw)
     set_raw_len  = int(len(set_raw)*reduction)
     validation_amount = int(set_raw_len*validation_split)
@@ -329,9 +473,9 @@ def getDatasets(filepath,batch_size,validation_split=1/3,reduction=1):
     training_set = set_raw[validation_amount:set_raw_len]
     whales = WhaleDataset(imagelist=training_set,img_size=size)
     vhales = WhaleDataset(imagelist=validation_set,img_size=size)
-    train_loader = torch.utils.data.DataLoader(whales, batch_size=batch_size,  num_workers=2,shuffle=True)
-    val_loader = torch.utils.data.DataLoader(vhales, batch_size=batch_size,  num_workers=2,shuffle=True)
-    return train_loader, val_loader
+    #train_loader = torch.utils.data.DataLoader(whales, batch_size=batch_size,  num_workers=2,shuffle=True)
+    #val_loader = torch.utils.data.DataLoader(vhales, batch_size=batch_size,  num_workers=2,shuffle=True)
+    return whales,vhales #train_loader, val_loader
 
 
 class EarlyStopper(): #patience is amount of validations to wait without loss improvment before stopping, delta is the necessary amount of improvement
@@ -356,52 +500,72 @@ class EarlyStopper(): #patience is amount of validations to wait without loss im
                 return True
 
 
-def getMISTDatasets(batch_size):
-    transformer = transforms.Compose([transforms.ToTensor()])
-    trainset=datasets.MNIST(root='data', train=True, download=True, transform=transformer)
-    testset=datasets.MNIST(root='data', train=False, download=True, transform=transformer)
-    train_loader = torch.utils.data.DataLoader(trainset, batch_size=batch_size, num_workers=0)
-    test_loader = torch.utils.data.DataLoader(testset, batch_size=batch_size, num_workers=0)
-    return train_loader, test_loader
-
-
 def trainNet(epochs,learning_rate,batch_size,data_path,layers,layer_size,beta=1,save=True):
+    print("AND GO")
     #writer = SummaryWriter('whales')
     #DATA
-    train_loader,val_loader = getDatasets(data_path,batch_size) #../data/train/crops/",batch_size)
+    train_set,val_set = getDatasets(data_path,batch_size) #../data/train/crops/",batch_size)
     #MODEL
-    model = facenet(layer_amount=layers).cuda()
+    model = facenet(layer_amount=layers,layer_size=layer_size).cuda()
     #EARLY STOPPER
-    es = EarlyStopper(10,0.1,str("VAE_earlystopsave_4"),save)
+    es = EarlyStopper(5,0.1,str("VAE_earlystopsave_4.pth"),save)
     #writer.add_graph(model,images)
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+    mse = nn.MSELoss()
     model.train()
     #TRAINING
     training_losses = []
     validation_losses = []
+    siamese_losses = []
     for epoch in range(epochs):
         total_train_loss = 0
-        for inputs in train_loader:
+        total_siamese_loss = 0
+        for b in range(int(train_set.getDatasetSize()/batch_size)):
+            #inputs = train_set.getBatch(batch_size,b)
+            b1,b2,l = train_set.getDoubleBatch(batch_size,b)
             optimizer.zero_grad()
-            inputs = inputs.float().cuda()
-            outputs, mu, logvar = model(inputs)
-            BCEKLD, BCE, KLD = loss_fn(outputs, inputs,mu,logvar,beta)
-            BCEKLD.backward() 
+            #inputs = inputs.float().cuda()
+            outputs, mu, logvar = model(b1)
+            BCEKLD, BCE, KLD = loss_fn(outputs, b1,mu,logvar,beta)
+            o = model.siamese(b1,b2)
+            loss = mse(o,l)
+            (loss + BCEKLD).backward() 
+            model.float()
             optimizer.step()
-            total_train_loss += BCEKLD
-        print("train loss " + str(total_train_loss.detach().cpu().item()))
-        #VALIDATION 
+            total_train_loss += (BCEKLD)
+            total_siamese_loss += loss
+        #print("train loss " + str(total_train_loss.detach().cpu().item()))
+        #SIAMESE TRAINING
+        """if epoch % 5 == 0: 
+            #SIAMESE TRAINING
+            siamese_loss = 0
+            for b in range(int(train_set.getDatasetSize()/batch_size)):
+                optimizer.zero_grad()
+                b1,b2,l = train_set.getDoubleBatch(batch_size,b)
+                o = model.siamese(b1,b2)
+                loss = mse(o,l)
+                if str(round(torch.min(o).item(),5)) == "nan":
+                    torch.save(model,str("VAE_earlystopsave_4_broken.pth"))
+                    break
+                print(round(torch.min(o).item(),5))
+                print(loss)
+                loss.backward()
+                model.float()
+                optimizer.step()
+                siamese_loss += loss
+            siamese_losses.append(siamese_loss.detach().cpu().item())
+            print("siamese loss "  + str(siamese_loss.detach().cpu().item()))"""
+        #VALIDATION
         if epoch % 10 == 0: 
             model.eval()
             with torch.no_grad():
                 total_val_loss = 0
-                for vinputs in val_loader:
+                for b in range(int(val_set.getDatasetSize()/batch_size)):
+                    vinputs = val_set.getBatch(batch_size,b)
                     vinputs = vinputs.float().cuda()
                     val_outputs,vmu,vlogvar = model(vinputs)
                     vBCEKLD, vBCE, vKLD  = loss_fn(val_outputs, vinputs,vmu,vlogvar,beta)
                     total_val_loss += vBCEKLD
-                    #image  =val_outputs[0,0].cpu().detach()
-                    #io.imsave("test_images/set/outputs/output_" + str(epoch) + ".jpg", (color.grey2rgb(image)*255).astype(np.uint8))
             validation_losses.append(total_val_loss.detach().cpu().item())
             print("Epoch " + str(epoch) + " with val loss " + str(validation_losses[-1]))
             model.train() #reset to train
@@ -411,11 +575,12 @@ def trainNet(epochs,learning_rate,batch_size,data_path,layers,layer_size,beta=1,
                 print("TRAINING FINISHED AFTER " + str(epoch) + " EPOCHS. K BYE.")
                 stop_epoch = epoch
                 break
+        siamese_losses.append(total_siamese_loss.detach().cpu().item())
         training_losses.append(total_train_loss.detach().cpu().item()) 
     #writer.close()
     #SAVE LOSSES TO FILEs
     if save:
-        filename = str("VAE_losses_" + str(layers)+ "_"+ str(layer_size)+".txt")
+        filename = str("VAE_losses_" + str(layers)+ "_"+ str(layer_size)+"_mse_loss.txt")
         file=open(filename,'w')
         file.write("trained with learning rate " + str(learning_rate) + ", batch size " + str(batch_size) + ", planned epochs " + str(epochs) + " but only took " + str(stop_epoch) + " epochs.")
         file.write("training_losses")
@@ -423,6 +588,11 @@ def trainNet(epochs,learning_rate,batch_size,data_path,layers,layer_size,beta=1,
         for element in training_losses:
             file.write(str(element))
             file.write('\n')
+        file.write("siamese_losses")
+        file.write('\n')
+        for element in siamese_losses:
+            file.write(str(element))
+            file.write('\n')  
         file.write("validation_losses")
         file.write('\n')
         for element in validation_losses:
@@ -522,7 +692,7 @@ def evalSet(filepath,network_path=None,beta=1):
         total_bk += BCEKLD.detach().cpu().item()
         total_bce += BCE.detach().cpu().item()
     print("Total loss for testset is: " + str(total_bk))
-    print("Total BCE loss for testset is: " + str(total_bce))
+    print("Total MSE loss for testset is: " + str(total_bce))
 
 
 def objective(trial):
@@ -590,6 +760,69 @@ def objective(trial):
     file.close()
     return final_loss
 
+def matchTop10():
+    model = torch.load("VAE_earlystopsave_4.pth").cuda()
+    tr_enc = np.load("../ae/vae_training_encodings.npy")
+    tr_ids = np.load("../ae/vae_training_encoding_ids.npy")
+    te_enc = np.load("../ae/vae_test_encodings.npy")
+    te_ids = np.load("../ae/vae_test_encoding_ids.npy")
+    tr_idx = findIndices(tr_ids)
+    tr_enc = tr_enc[tr_idx]
+    tr_ids = tr_ids[tr_idx]
+    te_idx = findIndices(te_ids)
+    te_enc = te_enc[te_idx]
+    te_ids = te_ids[te_idx]
+    pred = []
+    tp = 0
+    fp = 0
+    tn = 0
+    fn = 0
+    for i in range(len(te_ids)):
+      te = torch.from_numpy(np.array([te_enc[i],te_enc[i],te_enc[i],te_enc[i],te_enc[i]])).float().cuda()
+      matches = []
+      for j in range(0,len(tr_ids)-5,5):
+        tr = torch.from_numpy(np.array([tr_enc[j],tr_enc[j+1],tr_enc[j+2],tr_enc[j+3],tr_enc[j+4]])).float().cuda()
+        res = model.siamese_only(te,tr)
+        for r in res:
+          if r > 0.5: #classified match 
+            matches.append([r.item(),tr_ids[j,-1]])
+            if te_ids[i,-1] == tr_ids[j,-1]: #and is match
+              tp += 1
+            else: #but is no match
+              fp += 1
+          else: #classified not match
+            if te_ids[i,-1] == tr_ids[j,-1]: #but is match
+              fn += 1
+            else: #and is no match
+              tn += 1
+      matches = np.array(matches)
+      matches = matches[matches[:,0].argsort()]
+      match = 0
+      for k in range(1,11):
+        m_id = matches[-k,-1]
+        if te_ids[i,-1] == m_id:
+          match = k
+          break
+      if match > 0:
+        pred.append(1)
+      else: 
+        pred.append(0)
+      if tp+fp > 0 and tp+fn > 0:
+        print("recall: " + str(tp/(tp+fn)) + " and precision: " + str(tp/(tp+fp)))
+    a = np.mean(np.array(pred))
+    print("test accuracy: " + str(a))
+    recall = tp/(tp+fn)
+    precision = tp/(tp+fp)
+    print("recall: " + str(recall) + " and precision: " + str(precision))
+    filename = str("vae_top10.txt")
+    file=open(filename,'a')
+    file.write("recall:" + str(recall))
+    file.write("precision :" + str(precision))
+    file.write("accuracy:" + str(a)) 
+    file.write("matches:" + str(tp))
+    file.close()
+
+
 
 def main():
     torch.cuda.set_device(0)
@@ -618,7 +851,7 @@ def main2():
     getAndSaveEncodings("../data/train/crops/")
 
 def main3():
-    trainNet(epochs=20,learning_rate=0.0001,batch_size=8,data_path="../data/trainingset_final.csv",layers=4,layer_size=32,beta=11,save=True)
+    trainNet(epochs=1000,learning_rate=0.0001,batch_size=8,data_path="../data/trainingset_final.csv",layers=4,layer_size=32,beta=11,save=True)
 
 def main4():
 
@@ -631,4 +864,5 @@ def main5():
 if __name__ == "__main__":
     torch.cuda.empty_cache()
     main3()
+    #main()
     #evalSet("../data/testset_final.csv","VAE_earlystopsave_4")

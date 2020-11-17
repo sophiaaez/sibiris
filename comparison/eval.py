@@ -43,7 +43,7 @@ def evalSet(database_encodings, database_ids,set_encodings,set_ids,importance=No
     test_encodings = np.load(set_encodings)
     test_ids = np.load(set_ids, allow_pickle=True)
     if importance:
-        important_dimensions = np.load(importance)
+        important_dimensions = np.mean(np.load(importance),axis=0)
         encodings = encodings * important_dimensions
         test_encodings = test_encodings * important_dimensions
     knut = KNN(encodings,encoding_ids,10)
@@ -133,20 +133,26 @@ def analyseDimensions(database_encodings,database_ids):
     for i in range(len(ids)):
         if ids[i] == "" or ids[i] == "new_whale":
             remove_idx.append(i)
-    encodings = np.delete(encodings,remove_idx)
-    ids = np.delete(encodings,remove_idx)
+    encodings = np.delete(encodings,remove_idx, axis=0)
+    ids = np.delete(ids,remove_idx, axis=0)
     #create classifier
     classifier = LDA() #or Perceptron()
     classifier.fit(encodings,ids)
-    importance = classifier.coefs_
-    np.save("importance.npy",importance)
+    importance = classifier.coef_
+    np.save("vae_importance.npy",importance)
     #return importance
 
-
+def tsnegedoens(encodings,encoding_ids):
+    encode = np.load(encodings)
+    ids = np.laod(encoding_ids)
+    #
 
 
 #fixLabels("../ae/encoding_ids.npy","../ae/encoding_ids_simple")
 #fixSet("../ae/test_encodings.npy","../ae/test_encodings_simple")
-#evalSet("../ae/vae_encodings.npy","../ae/vae_encoding_ids.npy","../ae/vae_test_encodings.npy","../ae/vae_test_encoding_ids.npy",importance="./importance.npy")
-analyseDimensions("../ae/ae_encodings.npy","../ae/ae_encoding_ids.npy")
-checkDist("../ae/ae_encodings.npy","../ae/ae_encoding_ids.npy","../ae/ae_test_encodings.npy","../ae/ae_test_encoding_ids.npy", "w_b3ca4b7")
+#evalSet("../ae/ae_training_encodings.npy","../ae/ae_training_encoding_ids.npy","../ae/ae_test_encodings.npy","../ae/ae_test_encoding_ids.npy")#,importance="./importance.npy")
+#evalSet("../ae/vae_training_encodings.npy","../ae/vae_training_encoding_ids.npy","../ae/vae_test_encodings.npy","../ae/vae_test_encoding_ids.npy")#,importance="./importance.npy")
+
+#analyseDimensions("../ae/vae_training_encodings.npy","../ae/vae_training_encoding_ids.npy")
+#evalSet("../ae/vae_training_encodings.npy","../ae/vae_training_encoding_ids.npy","../ae/vae_test_encodings.npy","../ae/vae_test_encoding_ids.npy",importance="./vae_importance.npy")
+#checkDist("../ae/ae_encodings.npy","../ae/ae_encoding_ids.npy","../ae/ae_test_encodings.npy","../ae/ae_test_encoding_ids.npy", "w_b3ca4b7")
