@@ -122,7 +122,7 @@ class facenetAE(nn.Module):
 
 
     def forward(self, x):
-        print(x.size())
+        #print(x.size())
         x = nn.ReLU()(self.conv1(x)) 
         x = self.pool(x)
         x = self.lrn(x)
@@ -338,7 +338,7 @@ def trainNet(epochs,learning_rate,batch_size,data_path,layers,layer_size,save=Tr
     #MODEL
     model = facenetAE(layer_amount=layers,layer_size=layer_size).cuda()
     #EARLY STOPPER
-    es = EarlyStopper(10,0.1,str("AE_earlystopsave_4"),save)
+    es = EarlyStopper(10,0.1,str("AE_earlystopsave_4_simple.pth"),save)
     #writer.add_graph(model,images)
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     model.train()
@@ -381,7 +381,7 @@ def trainNet(epochs,learning_rate,batch_size,data_path,layers,layer_size,save=Tr
     #writer.close()
     #SAVE LOSSES TO FILEs
     if save:
-        filename = str("AE_losses_" + str(layers)+ "_" + str(layer_size) +".txt")
+        filename = str("AE_losses_" + str(layers)+ "_" + str(layer_size) +"_simple.txt")
         file=open(filename,'w')
         file.write("trained with learning rate " + str(learning_rate) + ", batch size " + str(batch_size) + ", planned epochs " + str(epochs) + " but only took " + str(stop_epoch) + " epochs.")
         file.write("training_losses")
@@ -422,7 +422,7 @@ def getAndSaveOutputs(filepath,network_path=None,amount=100):
         io.imsave("./trial_run/output_ae/" + imagename, (color.grey2rgb(image)*255).astype(np.uint8))
         print("./trial_run/output_ae/" + imagename)
 
-def getAndSaveEncodings(filepath,network_path=None):
+def getAndSaveEncodings(filepath,filename,network_path=None):
     imagelist = []
     with open(filepath, newline='') as csvfile:
         reader = csv.reader(csvfile, delimiter=',')
@@ -454,9 +454,9 @@ def getAndSaveEncodings(filepath,network_path=None):
         #if i%1000 == 0:
             #print(i)
     e_ids = np.array(encoding_ids)
-    with open('ae_training_encodings.npy', 'wb') as f:
+    with open(str('ae_' + filename + '_encodings_simple.npy'), 'wb') as f:
         np.save(f, encodings)
-    with open('ae_training_encoding_ids.npy','wb') as f:
+    with open(str('ae_' + filename + '_ids_simple.npy'),'wb') as f:
         np.save(f,encoding_ids)
     #return encodings
 

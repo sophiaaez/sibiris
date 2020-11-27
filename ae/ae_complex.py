@@ -115,6 +115,28 @@ class facenetAE(nn.Module):
         self.c2 = nn.Linear(128,32)
         self.c3 = nn.Linear(32,1)
 
+
+
+        # Spatial transformer localization-network
+        self.localization = nn.Sequential(
+            nn.Conv2d(1, 8, kernel_size=7),
+            nn.MaxPool2d(2, stride=2),
+            nn.ReLU(True),
+            nn.Conv2d(8, 10, kernel_size=5),
+            nn.MaxPool2d(2, stride=2),
+            nn.ReLU(True)
+        )
+
+        # Regressor for the 3 * 2 affine matrix
+        self.fc_loc = nn.Sequential(
+            nn.Linear(10 * 124*124, 32),
+            nn.ReLU(True),
+            nn.Linear(32, 3 * 2)
+        )
+
+        # Initialize the weights/bias with identity transformation
+        self.fc_loc[2].weight.data.zero_()
+
         torch.nn.init.xavier_uniform_(self.conv1.weight,gain=nn.init.calculate_gain('relu'))
         torch.nn.init.xavier_uniform_(self.conv2.weight,gain=nn.init.calculate_gain('relu'))
         torch.nn.init.xavier_uniform_(self.conv2a.weight,gain=nn.init.calculate_gain('relu'))
@@ -146,8 +168,23 @@ class facenetAE(nn.Module):
 
 
 
+    def stn(self, x):
+        xs = self.localization(x)
+        #print(xs.size())
+        xs = xs.view(-1, 10 *124 *124)
+        #print(xs.size())
+        theta = self.fc_loc(xs)
+        theta = theta.view(-1, 2, 3)
+
+        grid = F.affine_grid(theta, x.size())
+        x = F.grid_sample(x, grid)
+
+        return x
+
 
     def forward(self, x):
+        #print(x.size())
+        x = self.stn(x)
         #print(x.size())
         x = nn.ReLU()(self.conv1(x)) 
         #print(x.size())
@@ -194,27 +231,29 @@ class facenetAE(nn.Module):
         h=self.fl(x)
         #print(h.size())
         x=self.unfl(h)
+        print(x.size())
         if(self.layer_size == 128):
             x = nn.ReLU()(self.t_conv41(x))
         elif(self.layer_size == 64):
             x = nn.ReLU()(self.t_conv42(x))
         elif(self.layer_size == 32):
             x = nn.ReLU()(self.t_conv43(x))
-        #print(x.size()) #[layer_size,16,16]
+        print(x.size()) #[layer_size,16,16]
         x = nn.ReLU()(self.t_conv4(x))
-        #print(x.size()) #[384,32,32]
+        print(x.size()) #[384,32,32]
         x = nn.ReLU()(self.t_conv3(x))
-        #print(x.size()) #[192,64,64]
+        print(x.size()) #[192,64,64]
         x = nn.ReLU()(self.t_conv2(x))
-        #print(x.size()) #[64,128,128]
+        print(x.size()) #[64,128,128]
         x = nn.ReLU()(self.t_conv1(x))
-        #print(x.size()) #[1,512,512]
+        print(x.size()) #[1,512,512]
         x = nn.Sigmoid()(x)
         #print(x.size())
               
         return x
 
     def encode(self,x):
+        x = self.stn(x)
         x = nn.ReLU()(self.conv1(x))
         x = self.pool(x)
         x = self.lrn(x)
@@ -255,27 +294,39 @@ class facenetAE(nn.Module):
         x = self.unfl(x)
         #print(x.size())
         x1 = nn.ReLU()(self.l1(x))
+        #print(x1.size())
         x2 = nn.ReLU()(self.l2(x1))
+        #print(x2.size())
         x3 = self.l3(x)
+        #print(x3.size())
         x = nn.ReLU()(x2 + x3)
         x = self.bn(x)
 
         x1 = nn.ReLU()(self.l11(x))
+        #print(x1.size())
         x2 = self.l22(x1)
+        #print(x2.size())
         x3 = self.l33(x)
+        #print(x3.size())
         x = nn.ReLU()(x2 + x3)
         x = self.bn(x)
     
         x1 = nn.ReLU()(self.l111(x))
+        #print(x1.size())
         x2 = self.l222(x1)
+        #print(x2.size())
         x3 = self.l333(x)
+        #print(x3.size())
         x = nn.ReLU()(x2 + x3)
         x = self.bnn(x)
 
         x = self.o(x)
+        #print(x.size())
         x = self.fl(x)
         #print(x.size())
+        #print(x.size())
         x = nn.ReLU()(self.d(x))
+        #print(x.size())
         
         return x
 
@@ -624,9 +675,9 @@ def getAndSaveEncodings(filepath,network_path=None):
         #if i%1000 == 0:
             #print(i)
     e_ids = np.array(encoding_ids)
-    with open('ae_training_encodings.npy', 'wb') as f:
+    with open('ae_test_encodings.npy', 'wb') as f:
         np.save(f, encodings)
-    with open('ae_training_encoding_ids.npy','wb') as f:
+    with open('ae_test_encoding_ids.npy','wb') as f:
         np.save(f,encoding_ids)
     #return encodings
 
@@ -744,16 +795,43 @@ def main():
     for key, value in trial.params.items():
         print("    {}: {}".format(key, value))
 
+def findIndices(tr_ids,size=500,cutoff=5):
+    tr_idx = []
+    i = 0
+    while len(tr_idx)<=500:
+        id_ = tr_ids[i,-1]
+        tr_idx.append(i)
+        count = 0
+        for j in range(len(tr_ids)):
+          if not (i == j) and tr_ids[i,-1] == tr_ids[j,-1]:
+            tr_idx.append(j)
+            count += 1
+            if count >= cutoff:
+              break
+        i += 1
+    print(len(tr_idx))
+    return(tr_idx)
+
+def findMatchingIndices(te_ids,tr_ids):
+    unique_ids = set(tr_ids[:,-1])
+    te_idx = []
+    for u in unique_ids:
+        for t in range(len(te_ids)):
+            if u == te_ids[t,-1]:
+                te_idx.append(t)
+    print(len(te_idx))
+    return te_idx
+
 def matchTop10():
     model = torch.load("AE_earlystopsave_4.pth").cuda()
-    tr_enc = np.load("../ae/ae_training_encodings.npy")
-    tr_ids = np.load("../ae/ae_training_encoding_ids.npy")
-    te_enc = np.load("../ae/ae_test_encodings.npy")
-    te_ids = np.load("../ae/ae_test_encoding_ids.npy")
+    tr_enc = np.load("ae_training_encodings.npy")
+    tr_ids = np.load("ae_training_encoding_ids.npy")
+    te_enc = np.load("ae_test_encodings.npy")
+    te_ids = np.load("ae_test_encoding_ids.npy")
     tr_idx = findIndices(tr_ids)
     tr_enc = tr_enc[tr_idx]
     tr_ids = tr_ids[tr_idx]
-    te_idx = findIndices(te_ids)
+    te_idx = findMatchingIndices(te_ids,tr_ids)
     te_enc = te_enc[te_idx]
     te_ids = te_ids[te_idx]
     pred = []
@@ -761,7 +839,11 @@ def matchTop10():
     fp = 0
     tn = 0
     fn = 0
+    match_dist = []
+    no_match_dist = []
     for i in range(len(te_ids)):
+      if i % 10 == 0:
+        print(i)
       te = torch.from_numpy(np.array([te_enc[i],te_enc[i],te_enc[i],te_enc[i],te_enc[i]])).float().cuda()
       matches = []
       for j in range(0,len(tr_ids)-5,5):
@@ -772,33 +854,48 @@ def matchTop10():
             matches.append([r.item(),tr_ids[j,-1]])
             if te_ids[i,-1] == tr_ids[j,-1]: #and is match
               tp += 1
+              print("MATCH" + str(r.item()))
+              match_dist.append(r.item())
             else: #but is no match
               fp += 1
+              no_match_dist.append(r.item())
           else: #classified not match
             if te_ids[i,-1] == tr_ids[j,-1]: #but is match
               fn += 1
+              print("LOST MATCH" + str(r.item()))
+              match_dist.append(r.item())
             else: #and is no match
               tn += 1
-      matches = np.array(matches)
-      matches = matches[matches[:,0].argsort()]
+              no_match_dist.append(r.item())
       match = 0
-      for k in range(1,11):
-        m_id = matches[-k,-1]
-        if te_ids[i,-1] == m_id:
-          match = k
-          break
+      if len(matches) > 0:
+          matches = np.array(matches)
+          matches = matches[matches[:,0].argsort()]
+          match = 0
+          if len(matches) > 11:
+            upperbound = 11
+          else:
+            upperbound = len(matches)
+          for k in range(1,upperbound):
+            m_id = matches[-k,-1]
+            if te_ids[i,-1] == m_id:
+              match = k
+              break
       if match > 0:
         pred.append(1)
       else: 
         pred.append(0)
       #if tp+fp > 0 and tp+fn > 0:
         #print("recall: " + str(tp/(tp+fn)) + " and precision: " + str(tp/(tp+fp)))
+    print("mean match dist" + str(np.mean(match_dist)))
+    print("no match mean dist"  + str(np.mean(no_match_dist)))
     a = np.mean(np.array(pred))
     print("test accuracy: " + str(a))
+    print("FALSE POSITIVES" + str(fp))
     recall = tp/(tp+fn)
     precision = tp/(tp+fp)
     print("recall: " + str(recall) + " and precision: " + str(precision))
-    filename = str("ae_top10.txt")
+    filename = str("ae_top10_partial.txt")
     file=open(filename,'a')
     file.write("recall:" + str(recall))
     file.write("precision :" + str(precision))
@@ -810,14 +907,14 @@ def main2():
     getAndSaveEncodings("../data/train/crops/")
 
 def main3():
-    trainNet(epochs=1000,learning_rate=0.0001,batch_size=8,data_path="../data/trainingset_final.csv",layers=4,layer_size=64,save=True)
+    trainNet(epochs=1000,learning_rate=0.0001,batch_size=8,data_path="../data/trainingset_final.csv",layers=4,layer_size=64,save=False)
 
 def main4():
 	getAndSaveOutputs("../data/trainingset_final.csv","AE_earlystopsave_4.pth",amount=10)
 
 if __name__ == "__main__":
     torch.cuda.empty_cache()
-    main4()
+    main3()
     #main4()
     #getAndSaveEncodings("../data/trainingset_final.csv","AE_earlystopsave_4")
     #evalSet("../data/testset_final.csv","AE_earlystopsave_4")

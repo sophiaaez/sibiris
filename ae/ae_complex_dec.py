@@ -164,26 +164,26 @@ class facenetAE(nn.Module):
 
 
     def forward(self, x):
-        print(x.size())
+        #print(x.size())
         x = nn.ReLU()(self.conv1(x)) 
-        print(x.size())
+        #print(x.size())
         x = self.pool(x)
         x = self.lrn(x)
-        print(x.size()) #[64, 128, 128]
+        #print(x.size()) #[64, 128, 128]
         x = nn.ReLU()(self.conv2(x))
         x = nn.ReLU()(self.conv2a(x))
-        print(x.size())
+        #print(x.size())
         x = self.lrn(x)
         x = self.pool(x)
-        print(x.size()) #[192, 64, 64]
+        #print(x.size()) #[192, 64, 64]
         x = nn.ReLU()(self.conv3(x))
         x = nn.ReLU()(self.conv3a(x))
-        print(x.size())
+        #print(x.size())
         x = self.pool(x)
-        print(x.size()) #[384,32,32]
+        #print(x.size()) #[384,32,32]
         x = nn.ReLU()(self.conv4(x))
         x = nn.ReLU()(self.conv4a(x))
-        print(x.size()) #[256,32,32]
+        #print(x.size()) #[256,32,32]
         if(self.layer_amount > 4):
             x = nn.ReLU()(self.conv5(x))
             x = nn.ReLU()(self.conv5a(x))
@@ -204,11 +204,11 @@ class facenetAE(nn.Module):
             x = nn.ReLU()(self.conv43(x))
             x = nn.ReLU()(self.conv43a(x))
             #[32,32,32]
-        print(x.size()) #[layer_size,32,32]
+        #print(x.size()) #[layer_size,32,32]
         x = self.pool(x)
-        print(x.size()) #[layer_size,16,16]
+        #print(x.size()) #[layer_size,16,16]
         h=self.fl(x)
-        print(h.size())
+        #print(h.size())
         x=self.unfl(h)
         if(self.layer_size == 128):
             x = nn.ReLU()(self.t_conv41(x))
@@ -216,22 +216,22 @@ class facenetAE(nn.Module):
             x = nn.ReLU()(self.t_conv42(x))
         elif(self.layer_size == 32):
             x = nn.ReLU()(self.t_conv43(x))
-        print(x.size()) #[layer_size,16,16]
+        #print(x.size()) #[layer_size,16,16]
         x = nn.ReLU()(self.t_conv4a(x))
         x = nn.ReLU()(self.t_conv4(x))
-        print(x.size()) #[384,32,32]
+        #print(x.size()) #[384,32,32]
         x = nn.ReLU()(self.t_conv3a(x))
         x = nn.ReLU()(self.t_conv3(x))
-        print(x.size()) #[192,64,64]
+        #print(x.size()) #[192,64,64]
         x = self.lrn(x)
         x = nn.ReLU()(self.t_conv2a(x))
         x = nn.ReLU()(self.t_conv2(x))
-        print(x.size()) #[64,128,128]
+        #print(x.size()) #[64,128,128]
         x = self.lrn(x)
         x = nn.ReLU()(self.t_conv1(x))
-        print(x.size()) #[1,512,512]
+        #print(x.size()) #[1,512,512]
         x = nn.Sigmoid()(x)
-        print(x.size())
+        #print(x.size())
               
         return x
 
@@ -322,9 +322,9 @@ class facenetAE(nn.Module):
 
 
 def loss_fn(recon_x, x):   # defining loss function for va-AE (loss= reconstruction loss + KLD (to analyse if we have normal distributon))
-    mse = nn.MSELoss()(recon_x,x)
-    #bce = F.binary_cross_entropy(recon_x, x)
-    return mse
+    #mse = nn.MSELoss()(recon_x,x)
+    bce = F.binary_cross_entropy(recon_x, x)
+    return bce
     """a = round(torch.min(recon_x).item(),5)
     b = round(torch.max(recon_x).item(),5)
     c = round(torch.min(x).item(),5)
@@ -493,15 +493,17 @@ class EarlyStopper(): #patience is amount of validations to wait without loss im
                 return True
 
 
-def trainNet(epochs,learning_rate,batch_size,data_path,layers,layer_size,save=True):
+def trainNet(epochs,learning_rate,batch_size,data_path,layers,layer_size,save=True,trainFrom=None,trainFromEpoch=0):
     print("AND GO")
     #writer = SummaryWriter('whales')
     #DATA
     train_set,val_set = getDatasets(data_path) #../data/train/crops/",batch_size)
     #MODEL
     model = facenetAE(layer_amount=layers,layer_size=layer_size).cuda()
+    if trainFrom:
+        model = torch.load(trainFrom)
     #EARLY STOPPER
-    es = EarlyStopper(10,0.1,str("AE_earlystopsave_4.pth"),save)
+    es = EarlyStopper(5,0.1,str("AE_earlystopsave_4_dec.pth"),save)
     #writer.add_graph(model,images)
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     mse = nn.MSELoss()
@@ -510,7 +512,7 @@ def trainNet(epochs,learning_rate,batch_size,data_path,layers,layer_size,save=Tr
     training_losses = []
     validation_losses = []
     siamese_losses = []
-    for epoch in range(epochs):
+    for epoch in range(trainFromEpoch,epochs):
         total_train_loss = 0
         for b in range(int(train_set.getDatasetSize()/batch_size)):
             #inputs = train_set.getBatch(batch_size,b)
@@ -564,7 +566,7 @@ def trainNet(epochs,learning_rate,batch_size,data_path,layers,layer_size,save=Tr
     #writer.close()
     #SAVE LOSSES TO FILEs
     if save:
-        filename = str("AE_losses_" + str(layers)+ "_" + str(layer_size) +"_mse_loss.txt")
+        filename = str("AE_losses_" + str(layers)+ "_" + str(layer_size) +"_dec_mse_loss.txt")
         file=open(filename,'w')
         file.write("trained with learning rate " + str(learning_rate) + ", batch size " + str(batch_size) + ", planned epochs " + str(epochs) + " but only took " + str(stop_epoch) + " epochs.")
         file.write("training_losses")
@@ -584,7 +586,7 @@ def trainNet(epochs,learning_rate,batch_size,data_path,layers,layer_size,save=Tr
             file.write('\n')   
         file.close()
 
-def getAndSaveOutputs(filepath,network_path=None,amount=100):
+def getAndSaveOutputs(filepath,network_path=None,amount=10):
     imagelist = []
     with open(filepath, newline='') as csvfile:
         reader = csv.reader(csvfile, delimiter=',')
@@ -607,10 +609,10 @@ def getAndSaveOutputs(filepath,network_path=None,amount=100):
         output = model.forward(img.float().cuda())
         imagename = img_name.split("/")[-1]
         image  =output[0,0].cpu().detach()
-        io.imsave("./trial_run/output_ae/" + imagename, (color.grey2rgb(image)*255).astype(np.uint8))
-        print("./trial_run/output_ae/" + imagename)
+        io.imsave("./output_ae/" + imagename, (color.grey2rgb(image)*255).astype(np.uint8))
+        print("./output_ae/" + imagename)
 
-def getAndSaveEncodings(filepath,network_path=None):
+def getAndSaveEncodings(filepath,name,network_path=None):
     imagelist = []
     with open(filepath, newline='') as csvfile:
         reader = csv.reader(csvfile, delimiter=',')
@@ -642,9 +644,9 @@ def getAndSaveEncodings(filepath,network_path=None):
         #if i%1000 == 0:
             #print(i)
     e_ids = np.array(encoding_ids)
-    with open('ae_training_encodings.npy', 'wb') as f:
+    with open(str('ae_' + name + '_encodings_dec.npy'), 'wb') as f:
         np.save(f, encodings)
-    with open('ae_training_encoding_ids.npy','wb') as f:
+    with open(str('ae_' + name + '_ids_dec.npy'),'wb') as f:
         np.save(f,encoding_ids)
     #return encodings
 
@@ -673,6 +675,101 @@ def evalSet(filepath,network_path=None):
         BCE  = loss_fn(outputs,inputs)
         total_loss += BCE.detach().cpu().item()
     print("Total loss for testset is: " + str(total_loss))
+def findIndices(tr_ids,size=500,cutoff=5):
+    tr_idx = []
+    i = 0
+    while len(tr_idx)<=500:
+        id_ = tr_ids[i,-1]
+        tr_idx.append(i)
+        count = 0
+        for j in range(len(tr_ids)):
+          if not (i == j) and tr_ids[i,-1] == tr_ids[j,-1]:
+            tr_idx.append(j)
+            count += 1
+            if count >= cutoff:
+              break
+        i += 1
+    print(len(tr_idx))
+    return(tr_idx)
+
+def findMatchingIndices(te_ids,tr_ids):
+    unique_ids = set(tr_ids[:,-1])
+    te_idx = []
+    for u in unique_ids:
+        for t in range(len(te_ids)):
+            if u == te_ids[t,-1]:
+                te_idx.append(t)
+    print(len(te_idx))
+    return te_idx
+
+def matchTop10():
+    model = torch.load("AE_earlystopsave_4_dec.pth").cuda()
+    tr_enc = np.load("vae_training_encodings_dec.npy")
+    tr_ids = np.load("vae_training_ids_dec.npy")
+    te_enc = np.load("vae_test_encodings_dec.npy")
+    te_ids = np.load("vae_test_ids_dec.npy")
+    tr_idx = findIndices(tr_ids)
+    tr_enc = tr_enc[tr_idx]
+    tr_ids = tr_ids[tr_idx]
+    te_idx = findMatchingIndices(te_ids,tr_ids)
+    te_enc = te_enc[te_idx]
+    te_ids = te_ids[te_idx]
+    pred = []
+    tp = 0
+    fp = 0
+    tn = 0
+    fn = 0
+    for i in range(len(te_ids)):
+      te = torch.from_numpy(np.array([te_enc[i],te_enc[i],te_enc[i],te_enc[i],te_enc[i]])).float().cuda()
+      matches = []
+      for j in range(0,len(tr_ids)-5,5):
+        tr = torch.from_numpy(np.array([tr_enc[j],tr_enc[j+1],tr_enc[j+2],tr_enc[j+3],tr_enc[j+4]])).float().cuda()
+        res = model.siamese_only(te,tr)
+        for r in res:
+          if r > 0.5: #classified match 
+            matches.append([r.item(),tr_ids[j,-1]])
+            if te_ids[i,-1] == tr_ids[j,-1]: #and is match
+              tp += 1
+            else: #but is no match
+              fp += 1
+          else: #classified not match
+            if te_ids[i,-1] == tr_ids[j,-1]: #but is match
+              fn += 1
+            else: #and is no match
+              tn += 1
+      matches = np.array(matches)
+      match = 0
+      if len(matches) > 0:
+          matchlen = 11
+          if len(matches) < 11:
+            matchlen = len(matches)
+          matches = matches[matches[:,0].argsort()]
+          for k in range(1,matchlen):
+            m_id = matches[-k,-1]
+            if te_ids[i,-1] == m_id:
+              match = k
+              break
+          if match > 0:
+            pred.append(1)
+          else: 
+            pred.append(0)
+      #if tp+fp > 0 and tp+fn > 0:
+        #print("recall: " + str(tp/(tp+fn)) + " and precision: " + str(tp/(tp+fp)))
+    a = np.mean(np.array(pred))
+    print("test accuracy: " + str(a))
+    recall = 0
+    precision = 0
+    if tp+fp > 0 and tp+fn > 0:
+        recall = tp/(tp+fn)
+        precision = tp/(tp+fp)
+    print("recall: " + str(recall) + " and precision: " + str(precision))
+    filename = str("ae_top10_dec.txt")
+    file=open(filename,'a')
+    file.write("recall:" + str(recall))
+    file.write("precision :" + str(precision))
+    file.write("accuracy:" + str(a)) 
+    file.write("matches:" + str(tp))
+    file.close()
 
 def objective(trial):
     epochs = 1000
@@ -695,7 +792,7 @@ def objective(trial):
     #TRAINING
     training_losses = []
     validation_losses = []
-    es = EarlyStopper(10,0.1,str("AE_earlystopsave_" + str(layer_amount) + "_" + str(layer_size)),False)
+    es = EarlyStopper(10,0.1,str("save/AE_earlystopsave_" + str(layer_amount) + "_" + str(layer_size)),False)
     for epoch in range(epochs):
         total_train_loss = 0
         model.train()
@@ -767,10 +864,10 @@ def main2():
     getAndSaveEncodings("../data/train/crops/")
 
 def main3():
-    trainNet(epochs=1000,learning_rate=0.0001,batch_size=8,data_path="../data/trainingset_final.csv",layers=4,layer_size=64,save=True)
+    trainNet(epochs=1000,learning_rate=0.0001,batch_size=4,data_path="../data/trainingset_final.csv",layers=4,layer_size=64,save=True)
 
 def main4():
-	getAndSaveOutputs("../data/trial_run_test.csv","AE_earlystopsave_4")
+	getAndSaveOutputs("../data/trial_run_test.csv","save/AE_earlystopsave_4")
 
 if __name__ == "__main__":
     torch.cuda.empty_cache()

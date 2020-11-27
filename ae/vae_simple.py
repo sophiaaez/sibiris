@@ -356,15 +356,6 @@ class EarlyStopper(): #patience is amount of validations to wait without loss im
                 return True
 
 
-def getMISTDatasets(batch_size):
-    transformer = transforms.Compose([transforms.ToTensor()])
-    trainset=datasets.MNIST(root='data', train=True, download=True, transform=transformer)
-    testset=datasets.MNIST(root='data', train=False, download=True, transform=transformer)
-    train_loader = torch.utils.data.DataLoader(trainset, batch_size=batch_size, num_workers=0)
-    test_loader = torch.utils.data.DataLoader(testset, batch_size=batch_size, num_workers=0)
-    return train_loader, test_loader
-
-
 def trainNet(epochs,learning_rate,batch_size,data_path,layers,layer_size,beta=1,save=True):
     #writer = SummaryWriter('whales')
     #DATA
@@ -372,7 +363,7 @@ def trainNet(epochs,learning_rate,batch_size,data_path,layers,layer_size,beta=1,
     #MODEL
     model = facenet(layer_amount=layers).cuda()
     #EARLY STOPPER
-    es = EarlyStopper(10,0.1,str("VAE_earlystopsave_4"),save)
+    es = EarlyStopper(10,0.1,str("VAE_earlystopsave_4_simple.pth"),save)
     #writer.add_graph(model,images)
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     model.train()
@@ -415,7 +406,7 @@ def trainNet(epochs,learning_rate,batch_size,data_path,layers,layer_size,beta=1,
     #writer.close()
     #SAVE LOSSES TO FILEs
     if save:
-        filename = str("VAE_losses_" + str(layers)+ "_"+ str(layer_size)+".txt")
+        filename = str("VAE_losses_" + str(layers)+ "_"+ str(layer_size)+"_simple.txt")
         file=open(filename,'w')
         file.write("trained with learning rate " + str(learning_rate) + ", batch size " + str(batch_size) + ", planned epochs " + str(epochs) + " but only took " + str(stop_epoch) + " epochs.")
         file.write("training_losses")
@@ -430,34 +421,7 @@ def trainNet(epochs,learning_rate,batch_size,data_path,layers,layer_size,beta=1,
             file.write('\n')   
         file.close()
 
-def getAndSaveOutputs(filepath,network_path=None,amount=100):
-    #imagelist = glob.glob(image_path + str("*.jpg"))
-    imagelist = []
-    with open(filepath, newline='') as csvfile:
-        reader = csv.reader(csvfile, delimiter=',')
-        for row in reader:
-                name = str(row[0])
-                box = (str(row[1])[1:-1]).split(",")
-                bbox = [int(b) for b in box]
-                imagelist.append([name,bbox])
-    dataset = WhaleDataset(imagelist,512)
-    encoding_ids = None
-    encodings = np.array([])
-    if network_path:
-        model = torch.load(network_path)
-    else:
-        model = facenet()
-    if amount > len(dataset):
-        amount = len(dataset)
-    for i in range(amount):
-        img, img_name = dataset.getImageAndName(i)
-        output,mu,logvar = model.forward(img.float().cuda())
-        imagename = img_name.split("/")[-1]
-        image  =output[0,0].cpu().detach()
-        io.imsave("./trial_run/output_vae/" + imagename, (color.grey2rgb(image)*255).astype(np.uint8))
-        print("./trial_run/output_vae/" + imagename)
-
-def getAndSaveEncodings(filepath,network_path=None):
+def getAndSaveEncodings(filepath,filename,network_path=None):
     imagelist = []
     with open(filepath, newline='') as csvfile:
         reader = csv.reader(csvfile, delimiter=',')
@@ -475,7 +439,7 @@ def getAndSaveEncodings(filepath,network_path=None):
     if network_path:
         model = torch.load(network_path)
     else:
-        model = facenet()
+        model = facenetAE()
     for i in range(len(dataset)):
         img, img_name, bbox, tag = dataset.getImageAndAll(i)
         encoding = model.encode(img.float().cuda())
@@ -489,11 +453,38 @@ def getAndSaveEncodings(filepath,network_path=None):
         #if i%1000 == 0:
             #print(i)
     e_ids = np.array(encoding_ids)
-    with open('vae_training_encodings.npy', 'wb') as f:
+    with open(str('vae_' + filename + '_encodings_simple.npy'), 'wb') as f:
         np.save(f, encodings)
-    with open('vae_training_ids.npy','wb') as f:
+    with open(str('vae_' + filename + '_ids_simple.npy'),'wb') as f:
         np.save(f,encoding_ids)
     #return encodings
+
+
+def getAndSaveOutputs(filepath,network_path=None,amount=100):
+    imagelist = []
+    with open(filepath, newline='') as csvfile:
+        reader = csv.reader(csvfile, delimiter=',')
+        for row in reader:
+            name = str(row[0])
+            box = (str(row[1])[1:-1]).split(",")
+            bbox = [int(b) for b in box]
+            imagelist.append([name,bbox])
+    dataset = WhaleDataset(imagelist,512)
+    encoding_ids = None
+    encodings = np.array([])
+    if network_path:
+        model = torch.load(network_path)
+    else:
+        model = facenetAE()
+    if amount > len(dataset):
+        amount = len(dataset)
+    for i in range(amount):
+        img, img_name = dataset.getImageAndName(i)
+        output,mu,logvar = model.forward(img.float().cuda())
+        imagename = img_name.split("/")[-1]
+        image = output[0,0].cpu().detach()
+        io.imsave("./trial_run/output_vae/" + imagename, (color.grey2rgb(image)*255).astype(np.uint8))
+        print("./trial_run/output_vae/" + imagename)
 
 def evalSet(filepath,network_path=None,beta=1):
     #get data

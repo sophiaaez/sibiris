@@ -37,46 +37,55 @@ class KNN:
         self.neighbourhood.fit(x)
         self.ids = y
 
+def cleanDataset(tr_ids):
+    tr_idx= []
+    for i in range(len(tr_ids)):
+        if not (tr_ids[i,-1] == "new_whale") and not (tr_ids[i,-1] == ""):
+            tr_idx.append(i)
+    print(len(tr_idx))
+    return tr_idx
+
+
 def evalSet(database_encodings, database_ids,set_encodings,set_ids,importance=None):
     encodings = np.load(database_encodings)#"../ae/encodings.npy")
     encoding_ids = np.load(database_ids, allow_pickle=True)#"../ae/encoding_ids.npy")
     test_encodings = np.load(set_encodings)
     test_ids = np.load(set_ids, allow_pickle=True)
+    e_idx = cleanDataset(encoding_ids)
+    encodings = encodings[e_idx]
+    encoding_ids = encoding_ids[e_idx]
+    t_idx = cleanDataset(test_ids)
+    test_encodings = test_encodings[t_idx]
+    test_ids = test_ids[t_idx]
     if importance:
         important_dimensions = np.mean(np.load(importance),axis=0)
         encodings = encodings * important_dimensions
         test_encodings = test_encodings * important_dimensions
-    knut = KNN(encodings,encoding_ids,10)
+    knut = KNN(encodings,encoding_ids[:,-1],10)
     t1 = 0
     t5 = 0
     t10 = 0
     matchlist = []
     matchables = len(test_encodings)
-    match_dist = []
     for ite in range(len(test_encodings)):
         if ite%1000 == 0:
             print(ite)
         results = knut.predictTopK(test_encodings[ite]) #results are structured [[name,bbox,label],distance]
-        #print(test_ids[ite])
-        if test_ids[ite][2] == "new_whale":
-            matchables -= 1
         for ir in range(len(results)):
-            #print(results[ir])
-            if len(results[ir]) > 2:# and not results[ir][2] == "new_whale" and not results[ir][2] == "":
-                if results[ir][2] == test_ids[ite]: #if the class in the results matches the one this encoding belongs to
-                    match_dist.append(results[ir][-1])
+            if results[ir][0] == test_ids[ite,-1]: #if the class in the results matches the one this encoding belongs to
+                    #match_dist.append(results[ir][-1])
                     if ir == 0:
                         t1 += 1
                     if ir < 5:
                         t5 += 1
                     t10 += 1
-                    print("MATCH")
-                    matchlist.append(test_ids[ite])
+                    #print("MATCH")
+                    matchlist.append(results[ir])
     print("TOP 1: " + str(t1/matchables))
     print("TOP 5: " + str(t5/matchables))
     print("TOP 10: "  + str(t10/matchables))
-    print(matchlist)
-
+    #print(matchlist)
+    np.save("matches_nn.npy",np.array(matchlist))
 
 def fixSet(encodings_path,name):
     new_encodings = []
@@ -124,29 +133,32 @@ def checkDist(database_encodings, database_ids,set_encodings,set_ids,whale_id):
     print(match_dist)
 
 
-def analyseDimensions(database_encodings,database_ids):
-    encodings = np.load(database_encodings)#"../ae/encodings.npy")
-    encoding_ids = np.load(database_ids, allow_pickle=True)#"../ae/encoding_ids.npy")
-    ids = encoding_ids[:,2] #only actual ids
-    #clean ids from "new_whale" and ""
-    remove_idx = []
-    for i in range(len(ids)):
-        if ids[i] == "" or ids[i] == "new_whale":
-            remove_idx.append(i)
-    encodings = np.delete(encodings,remove_idx, axis=0)
-    ids = np.delete(ids,remove_idx, axis=0)
-    #create classifier
-    classifier = LDA() #or Perceptron()
-    classifier.fit(encodings,ids)
-    importance = classifier.coef_
-    np.save("vae_importance.npy",importance)
-    #return importance
+def findIndices(tr_ids,size=500,cutoff=5):
+    tr_idx = []
+    i = 0
+    while len(tr_idx)<=500:
+        id_ = tr_ids[i,-1]
+        tr_idx.append(i)
+        count = 0
+        for j in range(len(tr_ids)):
+          if not (i == j) and tr_ids[i,-1] == tr_ids[j,-1]:
+            tr_idx.append(j)
+            count += 1
+            if count >= cutoff:
+              break
+        i += 1
+    print(len(tr_idx))
+    return(tr_idx)
 
-def tsnegedoens(encodings,encoding_ids):
-    encode = np.load(encodings)
-    ids = np.laod(encoding_ids)
-    #
-
+def findMatchingIndices(te_ids,tr_ids):
+    unique_ids = set(tr_ids[:,-1])
+    te_idx = []
+    for u in unique_ids:
+        for t in range(len(te_ids)):
+            if u == te_ids[t,-1]:
+                te_idx.append(t)
+    print(len(te_idx))
+    return te_idx
 
 #fixLabels("../ae/encoding_ids.npy","../ae/encoding_ids_simple")
 #fixSet("../ae/test_encodings.npy","../ae/test_encodings_simple")
@@ -156,3 +168,4 @@ def tsnegedoens(encodings,encoding_ids):
 #analyseDimensions("../ae/vae_training_encodings.npy","../ae/vae_training_encoding_ids.npy")
 #evalSet("../ae/vae_training_encodings.npy","../ae/vae_training_encoding_ids.npy","../ae/vae_test_encodings.npy","../ae/vae_test_encoding_ids.npy",importance="./vae_importance.npy")
 #checkDist("../ae/ae_encodings.npy","../ae/ae_encoding_ids.npy","../ae/ae_test_encodings.npy","../ae/ae_test_encoding_ids.npy", "w_b3ca4b7")
+evalSet("../ae/vae_training_encodings_simple.npy","../ae/vae_training_ids_simple.npy","../ae/vae_test_encodings_simple.npy","../ae/vae_test_ids_simple.npy",importance=None)
