@@ -1,3 +1,17 @@
+with new data set split: 
+AUTOENCODER 
+TRAINING FINISHED AFTER 100 EPOCHS. K BYE.
+Total loss for testset is: 968.3266139030457
+
+VAE
+Epoch 170 with val loss 592.5005493164062
+TRAINING FINISHED AFTER 170 EPOCHS. K BYE.
+Total loss for testset is: 952.4877332448959
+Total BCE loss for testset is: 952.476403594017
+
+
+
+_____________________________________________________________________________________
 AUTOENCODER
 AE 310 epochs. Total test loss: 1726.5847563743591
 
@@ -13,6 +27,7 @@ MLP (numbers represent neurons in layer), total top 10 accuracy:
 100 - 0.04373543645814662
 200 - 0.04104678257752285
 400 - 0.03495250044810898
+800 - 
 100,50 - 0.017386628428033696
 200,100 - 0.026886538806237675
 
@@ -22,18 +37,23 @@ EPOCH 265 with loss 4.591204643249512, accuracy 0.9711474867724867 and recall 0.
 
 RESULTS WITHOUT UNLABELLED DATA!!!!
 NN:
-
+TOP 10: 0.029601722282023683
 
 MLP (numbers represent neurons in layer), total top 10 accuracy: 
-50 - 
+50 - 0.035342662360961605
 100 - 0.036239684248295656
-200 - 
-400 - 
-100,50 - 
-200,100 - 
+200 - 0.03265159669895946
+400 - 0.04592752063150341
+800 - 0.03265159669895946
+100,50 - 0.03265159669895946
+200,100 - 0.031216361679224973
 
 Siamese: 
-EPOCH 235 with loss 3.922739028930664, accuracy 0.9104872881355932 and recall 0.972940226171244
+EPOCH 240 with loss 5.3511247634887695, accuracy 0.8760593220338984 and recall 0.8979015334947539
+test accuracy: 0.008790814495873699
+TP: 232
+TP?: 49
+recall: 0.011606964178507104 and precision: 0.0009864910259081458
 
 
 ______________________________________________________________________________

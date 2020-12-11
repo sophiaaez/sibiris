@@ -1,8 +1,7 @@
-data/
 *.jpg
 *.jpeg
 ae/train*
 *.weights
 *.npy
 *.pth
-*modelsave*
+*.h5

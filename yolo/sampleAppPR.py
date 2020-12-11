@@ -3,6 +3,8 @@ import cv2
 import glob
 import numpy as np
 import csv
+from random import shuffle
+
 
 
 def relativeToAbsolute(x,y,w,h,o_x,o_y):
@@ -30,19 +32,23 @@ def fakeCropAllInFolder(folder,cfgpath,weightpath,objpath):
     img_darknet = Image(img)
     results = net.detect(img_darknet)
     for cat, score, bounds in results:
-      x,y,w,h= bounds
-      y1 = max(int(y-h/2),0)
-      y2 = min(int(y+h/2),img.shape[0])
-      x1 = max(int(x-w/2),0)
-      x2 = min(int(x+w/2),img.shape[1])
-      rows.append([i,[x1,y1,x2,y2]])
-    if counter %1000 == 0:
+      if 'fluke' in str(cat):
+        x,y,w,h= bounds
+        y1 = max(int(y-h/2),0)
+        y2 = min(int(y+h/2),img.shape[0])
+        x1 = max(int(x-w/2),0)
+        x2 = min(int(x+w/2),img.shape[1])
+        rows.append([i,[x1,y1,x2,y2]])
+      else:
+        print(str(cat) + str(i))
+    """if counter %1000 == 0:
       print(counter)
       with open(path, "a") as myfile:
         wr = csv.writer(myfile)
         for r in rows:
           wr.writerow(r)
-      rows = []
+      rows = []"""
+
 
 def fakeCropAllInFolderAFTER(folder,cfgpath,weightpath,objpath,after):
   imagelist = glob.glob(str(folder + "*.jpg"))
@@ -65,23 +71,22 @@ def fakeCropAllInFolderAFTER(folder,cfgpath,weightpath,objpath,after):
     img_darknet = Image(img)
     results = net.detect(img_darknet)
     for cat, score, bounds in results:
-      x,y,w,h= bounds
-      y1 = max(int(y-h/2),0)
-      y2 = min(int(y+h/2),img.shape[0])
-      x1 = max(int(x-w/2),0)
-      x2 = min(int(x+w/2),img.shape[1])
-      rows.append([i,[x1,y1,x2,y2]])
-    if counter %1000 == 0:
+      if 'fluke' in str(cat):
+        x,y,w,h= bounds
+        y1 = max(int(y-h/2),0)
+        y2 = min(int(y+h/2),img.shape[0])
+        x1 = max(int(x-w/2),0)
+        x2 = min(int(x+w/2),img.shape[1])
+        rows.append([i,[x1,y1,x2,y2]])
+      else:
+        print(str(cat) + str(i))
+    """if counter %1000 == 0:
       print(counter)
       with open(path, "a") as myfile:
         wr = csv.writer(myfile)
         for r in rows:
           wr.writerow(r)
-      rows = []
-  with open(path, "a") as myfile:
-        wr = csv.writer(myfile)
-        for r in rows:
-          wr.writerow(r)
+      rows = []"""
 
 
 
@@ -187,11 +192,44 @@ def writeResults(results,path,weightnr):
       wr.writerow(r)
 
 def test():
-  print("TEST COMPLETED")
+  folder = "../data/kaggle/"
+  imagelist = glob.glob(str(folder + "*.jpg"))
+  shuffle(imagelist)
+  imagelist = imagelist[:50]
+  net = Detector(bytes("yolo-obj.cfg", encoding="utf-8"), bytes("yolo-obj_1500.weights", encoding="utf-8"), 0, bytes("obj.data",encoding="utf-8"))
+  for i in imagelist: 
+    #i = "../data/kaggle/039fcf391.jpg"
+   
+    resultlist = [["image","cat","score","bounds"]]
+    img = cv2.imread(i)
+    img_darknet = Image(img)
+    results = net.detect(img_darknet)
+    coords = []
+    cats = []
+    for cat, score, bounds in results:
+      x,y,w,h= bounds
+      coor = [int(x-w/2),int(y-h/2),int(x+w/2),int(y+h/2)]
+      resultlist.append([i,cat,score,bounds])
+      coords.append(coor)
+      cats.append(cat)
+      print("drawing " + "../data/images/" + str(i[15:-3]) + ".jpg")
+      cv2.rectangle(img, (int(x-w/2), int(y-h/2)), (int(x+w/2), int(y+h/2)), (255,0,0), thickness=2)
+      cv2.putText(img,str(cat.decode("utf-8")),(int(x),int(y)),cv2.FONT_HERSHEY_COMPLEX,1,(255,0,0))
+      """if draw:
+        for l in label:
+          x,y,w,h = relativeToAbsolute(l[1],l[2],l[3],l[4],img.shape[1],img.shape[0])
+          cv2.rectangle(img, (int(x-w/2), int(y-h/2)), (int(x+w/2), int(y+h/2)), (0,255,0), thickness=2)
+          cv2.putText(img,str(l[0]),(int(x),int(y)),cv2.FONT_HERSHEY_COMPLEX,1,(0,255,0))"""
+    cv2.imwrite("../data/images/" + str(i[15:-4]) + ".jpg",img)
+
+
 
 def main():
   #fakeCropAllInFolderAFTER("../data/test/","yolo-obj.cfg","yolo-obj_1500.weights","obj.data","../data/test/dff8065d4.jpg")
   #fakeCropAllInFolderAFTER("../data/kaggle/","yolo-obj.cfg","yolo-obj_1500.weights","obj.data","../data/kaggle/fc0980b84.jpg")
+  #fakeCropAllInFolder("../data/kaggle/","yolo-obj.cfg","yolo-obj_1500.weights","obj.data")
+  test()
+  #fakeCropAllInFolderAFTER("../data/kaggle/","yolo-obj.cfg","yolo-obj_1500.weights","obj.data","../data/kaggle/e00620fc3.jpg")
 
 if __name__ == "__main__":
     main()

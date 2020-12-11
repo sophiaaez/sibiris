@@ -43,3 +43,4 @@ def preprocessImages(imagelist):
       elif label == "fluke":
         flukes.append([i,[middlex,middley],crop])
   return(fins,flukes)
+

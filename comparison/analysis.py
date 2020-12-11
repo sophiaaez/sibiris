@@ -3,6 +3,11 @@ import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 
+
+"""
+finds matches for an id_ among a list ids, the amount of matches is limited by cutoff
+Returns a list of indices that refer to the id_ matches position in ids.
+"""
 def findMatches(id_,ids,cutoff=7):
     idx = []
     for i in range(len(ids)):
@@ -10,13 +15,18 @@ def findMatches(id_,ids,cutoff=7):
             idx.append(i)
     return(idx)
 
-def findIndices(tr_ids,cutoff=7):
+"""
+Finds a certain amonut of indexes of ids that appear multiple times,
+limits the number of the same id appearing there by the cutoff
+Returns a list of indices of those images/ids
+"""
+def findIndices(tr_ids,amount = 9,cutoff=7):
     tr_idx = []
     i = 0
     uids = 1
     fave_whale_id = "w_b3ca4b7"
     tr_idx = findMatches(fave_whale_id,tr_ids)
-    while uids <= 9:
+    while uids <= amount:
         id_ = tr_ids[i,-1]
         if not id_ == 'new_whale' and not id_ == "":
             uids += 1
@@ -30,32 +40,25 @@ def findIndices(tr_ids,cutoff=7):
                     print(id_)
                     uids += 1
         i += 1
-    print(len(tr_idx))
     return(tr_idx)
 
-
-
-
-tr_enc = np.load("../ae/ae_training_encodings_simple.npy")
-tr_ids = np.load("../ae/ae_training_ids_simple.npy")
-te_enc = np.load("../ae/ae_test_encodings_simple.npy")
-te_ids = np.load("../ae/ae_test_ids_simple.npy")
-ids =np.concatenate([tr_ids,te_ids],axis=0)
-enc =np.concatenate([tr_enc,te_enc],axis=0)
-idx = findIndices(ids)
-ids = ids[idx]
-enc = enc[idx]
-
-tsne = TSNE(n_components=2)
-transformed = tsne.fit_transform(enc)
-print(transformed.shape)
-
-font = {'family':'normal',
-        'size':4}
-matplotlib.rc('font',**font)
-
-fig, ax = plt.subplots(dpi=300)
-plt.scatter(transformed[:,0],transformed[:,1])
-for i, txt in enumerate(ids):
-    ax.annotate(str(txt[0]+"\n"+ txt[-1]),(transformed[i,0],transformed[i,1]),)
-    plt.savefig('analysis_plot.png')
+"""
+Creates a plot of the encodings at encodingspath whose ids are at idspath. both should have .npy format.
+Saves the plot at plotpath should include .png or .jpg ending
+"""
+def createPlot(encodingpath,idspath,plotpath):
+    enc = np.load(encodingpath)
+    ids = np.load(idspath)
+    idx = findIndices(ids)
+    ids = ids[idx]
+    enc = enc[idx]
+    tsne = TSNE(n_components=2)
+    transformed = tsne.fit_transform(enc)
+    font = {'family':'normal',
+            'size':4}
+    matplotlib.rc('font',**font)
+    fig, ax = plt.subplots(dpi=300)
+    plt.scatter(transformed[:,0],transformed[:,1])
+    for i, txt in enumerate(ids):
+        ax.annotate(str(txt[0]+"\n"+ txt[-1]),(transformed[i,0],transformed[i,1]),)
+        plt.savefig(plotpath)
