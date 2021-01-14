@@ -216,7 +216,7 @@ def loss_siam(output,target):
     return l
 
 def trainNet(epochs,learning_rate,batch_size,data_path,layers,layer_size,factor=1,save=True):
-    train_loader,val_loader,train_set,val_set = getDatasets(data_path,batch_size,raw=True)
+    train_loader,val_loader,train_set,val_set = getDatasets(data_path,batch_size,raw=True,findDoubles=True)
     model = facenetAE(layer_amount=layers,layer_size=layer_size).cuda()
     es = EarlyStopper(10,0.1,str("AE_earlystopsave_simple_siamese.pth"),save)
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
@@ -331,7 +331,7 @@ def objective(trial):
     factor = trial.suggest_int("factor",1,30)
     #print("BATCH SIZE: " + str(batch_size))
     print("Factor " + str(factor))
-    train_loader,val_loader,train_set,val_set = getDatasets(data_path,batch_size,reduction=0.25,raw=True)
+    train_loader,val_loader,train_set,val_set = getDatasets(data_path,batch_size,reduction=0.25,raw=True,findDoubles=True)
     model = facenetAE(layer_amount=layer_amount,layer_size=layer_size,extradense=extradense).cuda()
     es = EarlyStopper(10,0.1,str("AE_earlystopsave_siamese_simple_v2.pth"),False)
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
