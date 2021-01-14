@@ -2,10 +2,11 @@ import csv
 from dataset import WhaleDataset
 import numpy as np
 import torch
-from skimage import io
+from skimage import io, color
 
 def getAndSaveOutputs(filepath,network_path=None,amount=100):
     imagelist = []
+    code = network_path[:3]
     with open(filepath, newline='') as csvfile:
         reader = csv.reader(csvfile, delimiter=',')
         for row in reader:
@@ -13,7 +14,7 @@ def getAndSaveOutputs(filepath,network_path=None,amount=100):
             box = (str(row[1])[1:-1]).split(",")
             bbox = [int(b) for b in box]
             imagelist.append([name,bbox])
-    dataset = WhaleDataset(imagelist[:amount],512)
+    dataset = WhaleDataset(imagelist[:amount],512,augment=False)
     encoding_ids = None
     encodings = np.array([])
     if network_path:
@@ -23,12 +24,15 @@ def getAndSaveOutputs(filepath,network_path=None,amount=100):
         for i in range(amount):
             img, img_name, _, _ = dataset.getImageAndAll(i)
             output = model.forward(img.float().cuda())
+            if len(output) > 1:
+                output = output[0]
             imagename = img_name.split("/")[-1]
             image  =output[0,0].cpu().detach()
-            io.imsave("./trial_run/output_ae/" + imagename, (color.grey2rgb(image)*255).astype(np.uint8))
-            print("./trial_run/output_ae/" + imagename)
+            io.imsave("./outputs/z_dim_2" + code + imagename, (color.grey2rgb(image)*255).astype(np.uint8))
+            io.imsave("./outputs/z_dim_2" + imagename,(color.grey2rgb(img[0,0])*255).astype(np.uint8))
+            print(imagename)
 
-def getAndSaveEncodings(filepath,filename,ntype,network_path=None):
+def getAndSaveEncodings(filepath,filename,ntype,network_path): #ntype = networktype e.g. vae or ae. filename = training or test
     imagelist = []
     with open(filepath, newline='') as csvfile:
         reader = csv.reader(csvfile, delimiter=',')
@@ -40,13 +44,13 @@ def getAndSaveEncodings(filepath,filename,ntype,network_path=None):
             if(len(row)>2):
                 tag = str(row[2])
             imagelist.append([name,bbox,tag])
-    dataset = WhaleDataset(imagelist,512)
+    dataset = WhaleDataset(imagelist,512,augment=False)
     encodings = np.array([])
     if network_path:
         model = torch.load(network_path)
         for i in range(len(dataset)):
             img, img_name, bbox, tag = dataset.getImageAndAll(i)
-            encoding = model.encode(img.float().cuda())[0]
+            encoding = model.encode(img.float().cuda())
             eco=encoding.detach().cpu().numpy()
             if i == 0:
                 encodings = np.array(eco)

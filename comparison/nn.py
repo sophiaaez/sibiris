@@ -16,7 +16,8 @@ class ModNN:
         self.ids = labels #ids refers to [imagepath,bounding box,individual label] 
         #embeddings and labels have to be orderd the same for this to work!!!
         
-    def predictTopK(self,x): #returns an array of the top k neighbours (imagepaths/bbox/label) and their distance 
+    def predictTopK(self,x): #returns an array of the top k neighbours (imagepaths/bbox/label) with unique labels and their distance 
+        #print(x.shape)
         distances, neigh_idxs = self.neighbourhood.kneighbors([x])
         distances = distances[0] #sorted in ascending order
         neigh_idxs = neigh_idxs[0]
@@ -52,10 +53,17 @@ def top10NN(tr_enc_path,tr_ids_path,te_enc_path,te_ids_path,reduced=None):
     te_idx = cleanDataset(te_ids)
     te_enc = te_enc[te_idx]
     te_ids = te_ids[te_idx]
+    #print(tr_enc.shape)
+    #print(tr_ids.shape)
+    #print(te_enc.shape)
+    #print(te_ids.shape)
     if reduced:
         te_idx = randomSubset(reduced,len(te_ids))
         te_enc = te_enc[te_idx]
         te_ids = te_ids[te_idx]
+    #tr_enc = tr_enc.reshape(1,-1)
+    #te_enc = te_enc.reshape(1,-1)
+    #print(tr_enc.shape)
     knut = ModNN(tr_enc,tr_ids,10)
     t10 = 0
     matchlist = []

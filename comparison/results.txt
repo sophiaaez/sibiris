@@ -1,128 +1,48 @@
-with new data set split: 
-AUTOENCODER 
-TRAINING FINISHED AFTER 100 EPOCHS. K BYE.
-Total loss for testset is: 968.3266139030457
-
-VAE
-Epoch 170 with val loss 592.5005493164062
-TRAINING FINISHED AFTER 170 EPOCHS. K BYE.
-Total loss for testset is: 952.4877332448959
-Total BCE loss for testset is: 952.476403594017
-
-
-
-_____________________________________________________________________________________
-AUTOENCODER
-AE 310 epochs. Total test loss: 1726.5847563743591
-
-
-RESULTS WITH UNLABELLED DATA!!!!!
-NN:
-TOP 1: 0.004485109436670255
-TOP 5: 0.015069967707212056
-TOP 10: 0.02529601722282024
-
-MLP (numbers represent neurons in layer), total top 10 accuracy: 
-50 - 0.039792077433231765
-100 - 0.04373543645814662
-200 - 0.04104678257752285
-400 - 0.03495250044810898
-800 - 
-100,50 - 0.017386628428033696
-200,100 - 0.026886538806237675
-
-Siamese: 
-EPOCH 265 with loss 4.591204643249512, accuracy 0.9711474867724867 and recall 0.9965823018658785
-----who cares, probably terrible
-
-RESULTS WITHOUT UNLABELLED DATA!!!!
-NN:
-TOP 10: 0.029601722282023683
-
-MLP (numbers represent neurons in layer), total top 10 accuracy: 
-50 - 0.035342662360961605
-100 - 0.036239684248295656
-200 - 0.03265159669895946
-400 - 0.04592752063150341
-800 - 0.03265159669895946
-100,50 - 0.03265159669895946
-200,100 - 0.031216361679224973
-
-Siamese: 
-EPOCH 240 with loss 5.3511247634887695, accuracy 0.8760593220338984 and recall 0.8979015334947539
-test accuracy: 0.008790814495873699
-TP: 232
-TP?: 49
-recall: 0.011606964178507104 and precision: 0.0009864910259081458
-
-
-______________________________________________________________________________
-ß-VARIATIONAL AUTOENCODER
-VAE 130 epochs.Total loss for testset is: 1903.8512323498726
-Total BCE loss for testset is: 1903.812207877636
-
-NN:
-TOP 1: 0.0028704700394689632
-TOP 5: 0.01686401148188016
-TOP 10: 0.024578399712952996
-
-MLP (numbers represent neurons in layer), total top 10 accuracy: 
-50 - 
-100 - 
-200 - 
-400 - 
-100,50 - 
-200,100 - 
-
-
-Siamese: 
-total top 10 accuracy on test set: 
-
-
-
-
-
-
-
-
+results:
 
 AE
+ModNN
+TOP 10: 0.041319318593693366
+MLP relu
+(50,)
+0.023921710764769843
+(100,)
+0.023921710764769843
+(100, 50)
+0.023921710764769843
+(200,)
+0.023921710764769843
+(200, 100)
+0.023921710764769843
+(400,)
+0.023921710764769843
+(800,)
+0.023921710764769843
+(1600,)
+0.023921710764769843
+(1600, 800)
+0.03515766582094962
+(3200,)
+0.023921710764769843
+(3200, 1600)
+0.03733236679956506
+(6400,)
+0.023921710764769843
+MLP logistic
+(50,)
+0.02573396158028271
+(100,)
+0.023921710764769843
+(100, 50)
+0.023921710764769843
+(200,)
+0.021022109459949256
+(200, 100)
+0.023921710764769843
+(400,)
+0.02355926060166727
 
-Feed Forward:
-    test accuracy: 0.001996007984031936
-    recall: 0.49473684210526314 and precision: 0.00035134670444266695
-Mixed:
-    test accuracy: 0.005988023952095809
-    recall: 0.47368421052631576 and precision: 0.00034468231779709703
-
-
-ß-VAE
-
-Feed Forward:
-    test accuracy: 0.007984031936127744
-    recall: 0.4631578947368421 and precision: 0.0003155433800433155
-
-Mixed:
-    test accuracy: 0.0
-    recall: 0.631578947368421 and precision: 0.00041749295480638765
-
-
-
-
-
-
-
-
-
-
-
-
-
-______________________________________________________________________________
-Anhang:
-1. die die vom NN top 10 korrekt klassifiziert wurden mit AE encodings:
-[array(['ca5caa066.jpg', '[0, 0, 1050, 481]', 'w_698fcbe'], dtype='<U22'), array(['f104b0e52.jpg', '[0, 38, 1050, 409]', 'w_51fc1fc'], dtype='<U22'), array(['5b9390ac9.jpg', '[31, 85, 980, 453]', 'w_2b49489'], dtype='<U22'), array(['96b83ed11.jpg', '[0, 74, 1050, 462]', 'w_9b5109b'], dtype='<U22'), array(['dcb35a093.jpg', '[0, 0, 1050, 403]', 'w_14330a0'], dtype='<U22'), array(['25435d97c.jpg', '[327, 263, 741, 432]', 'w_e966f36'], dtype='<U22'), array(['4abf203a6.jpg', '[108, 108, 928, 567]', 'w_4ea4f59'], dtype='<U22'), array(['3ffe3d3a5.jpg', '[0, 100, 1050, 591]', 'w_c875e45'], dtype='<U22'), array(['472fc49d1.jpg', '[181, 81, 880, 556]', 'w_d066f46'], dtype='<U22'), array(['c173a89dc.jpg', '[0, 14, 1041, 340]', 'w_cda3971'], dtype='<U22'), array(['60cabdded.jpg', '[0, 24, 1050, 381]', 'w_a059841'], dtype='<U22'), array(['4904bdae4.jpg', '[281, 222, 772, 417]', 'w_9c506f6'], dtype='<U22'), array(['c9993f714.jpg', '[13, 7, 1009, 361]', 'w_9aa9809'], dtype='<U22'), array(['e55fe9de7.jpg', '[217, 0, 787, 389]', 'w_733f661'], dtype='<U22'), array(['451bda32b.jpg', '[62, 99, 1030, 518]', 'w_2b069ba'], dtype='<U22'), array(['8238b5b87.jpg', '[53, 270, 1028, 651]', 'w_03670aa'], dtype='<U22'), array(['bd9bd86eb.jpg', '[246, 0, 851, 590]', 'w_3de579a'], dtype='<U22'), array(['86648ec62.jpg', '[0, 98, 830, 256]', 'w_01f14e1'], dtype='<U22'), array(['44cd30b4c.jpg', '[0, 0, 1050, 349]', 'w_51fc1fc'], dtype='<U22'), array(['04e1e4c3a.jpg', '[0, 231, 979, 410]', 'w_c7a611a'], dtype='<U22'), array(['e212fd34c.jpg', '[54, 219, 986, 397]', 'w_9c506f6'], dtype='<U22'), array(['0962efdb7.jpg', '[245, 233, 766, 412]', 'w_700ebb4'], dtype='<U22'), array(['0e95eb004.jpg', '[68, 38, 1015, 522]', 'new_whale'], dtype='<U22'), array(['2b6126122.jpg', '[0, 0, 1050, 333]', 'w_0fdf741'], dtype='<U22'), array(['ad8fd0f87.jpg', '[0, 116, 1050, 441]', 'w_b403feb'], dtype='<U22'), array(['ace5b807e.jpg', '[123, 246, 902, 509]', 'w_83cc0ec'], dtype='<U22'), array(['e7eeaa6fc.jpg', '[61, 0, 1015, 418]', 'w_0369a5c'], dtype='<U22'), array(['0d6d02681.jpg', '[11, 0, 1013, 350]', 'w_a586dce'], dtype='<U22'), array(['5a8df5f64.jpg', '[0, 134, 963, 297]', 'w_8a235b6'], dtype='<U22'), array(['e0fce9c8b.jpg', '[67, 57, 918, 208]', 'w_a4fb1d8'], dtype='<U22'), array(['a39babc55.jpg', '[25, 0, 1016, 342]', 'w_d405854'], dtype='<U22'), array(['d485815e6.jpg', '[183, 91, 828, 557]', 'w_343f088'], dtype='<U22'), array(['36ef0f133.jpg', '[0, 60, 1050, 418]', 'w_9b5109b'], dtype='<U22'), array(['ceefe609f.jpg', '[256, 91, 748, 281]', 'w_a9304b9'], dtype='<U22'), array(['f8886d86a.jpg', '[28, 131, 1022, 593]', 'w_bf960fa'], dtype='<U22'), array(['65d0f87e6.jpg', '[0, 0, 1050, 415]', 'w_cd4cb49'], dtype='<U22'), array(['3d8524534.jpg', '[0, 0, 1050, 576]', 'w_6e6307e'], dtype='<U22'), array(['633c4416c.jpg', '[127, 133, 876, 452]', 'w_4516ff1'], dtype='<U22'), array(['397ae55e0.jpg', '[267, 276, 922, 475]', 'w_cef693e'], dtype='<U22'), array(['f4b6fc1b7.jpg', '[5, 0, 1050, 450]', 'w_778e474'], dtype='<U22'), array(['cd1b7a956.jpg', '[115, 200, 903, 481]', 'w_700ebb4'], dtype='<U22'), array(['e46f88b1f.jpg', '[94, 0, 935, 517]', 'w_17b0d3a'], dtype='<U22'), array(['267df3294.jpg', '[74, 93, 928, 498]', 'w_d72771c'], dtype='<U22'), array(['034e5fe12.jpg', '[0, 37, 1050, 418]', 'w_cbb15d2'], dtype='<U22'), array(['8be0c62d2.jpg', '[0, 209, 958, 322]', 'w_1d0830e'], dtype='<U22'), array(['fc02450f3.jpg', '[0, 106, 1050, 483]', 'w_a7196c0'], dtype='<U22'), array(['1cc05f07d.jpg', '[120, 87, 674, 365]', 'w_89f521e'], dtype='<U22'), array(['892e47884.jpg', '[152, 205, 855, 400]', 'w_0369a5c'], dtype='<U22'), array(['b7a05f0da.jpg', '[0, 155, 1050, 499]', 'w_f5bf6df'], dtype='<U22'), array(['590b15e56.jpg', '[0, 40, 966, 340]', 'w_5d6ba39'], dtype='<U22'), array(['97fcad729.jpg', '[61, 0, 977, 441]', 'w_3976c05'], dtype='<U22'), array(['ff84b05fd.jpg', '[0, 0, 1050, 481]', 'w_d405854'], dtype='<U22'), array(['8c9a928d2.jpg', '[24, 65, 1013, 496]', 'w_9a1a810'], dtype='<U22'), array(['ee783803c.jpg', '[0, 8, 918, 479]', 'w_51fc1fc'], dtype='<U22'), array(['4887aa5fb.jpg', '[28, 0, 665, 299]', 'w_b3df6bf'], dtype='<U22'), array(['5b94984c6.jpg', '[0, 0, 1050, 460]', 'w_e27bbf6'], dtype='<U22'), array(['137e7307f.jpg', '[0, 0, 852, 340]', 'w_4801beb'], dtype='<U22'), array(['2697c1066.jpg', '[35, 252, 976, 464]', 'w_fdcaaa8'], dtype='<U22'), array(['4f19fdcc7.jpg', '[139, 173, 673, 330]', 'w_5520ce2'], dtype='<U22'), array(['329ef0717.jpg', '[0, 0, 854, 306]', 'w_2af46a8'], dtype='<U22'), array(['972893a51.jpg', '[92, 152, 951, 325]', 'w_23a388d'], dtype='<U22'), array(['0338c2abc.jpg', '[0, 67, 1023, 395]', 'new_whale'], dtype='<U22'), array(['58a1e51f4.jpg', '[128, 129, 904, 317]', 'w_789c969'], dtype='<U22'), array(['0e76405ec.jpg', '[0, 0, 1050, 357]', 'w_789c969'], dtype='<U22'), array(['b2b6128eb.jpg', '[49, 0, 961, 431]', 'new_whale'], dtype='<U22'), array(['bcd3b6249.jpg', '[105, 153, 887, 480]', 'w_9b5109b'], dtype='<U22'), array(['51ae55704.jpg', '[176, 164, 860, 443]', 'w_23a388d'], dtype='<U22'), array(['6af30a730.jpg', '[0, 0, 1050, 531]', 'w_59052ad'], dtype='<U22'), array(['adceba36f.jpg', '[0, 9, 1050, 387]', 'w_60ce6fc'], dtype='<U22'), array(['d94423ec0.jpg', '[205, 417, 566, 597]', 'w_9d86594'], dtype='<U22'), array(['f3af59c7a.jpg', '[0, 108, 900, 383]', 'w_5cc76f8'], dtype='<U22'), array(['4ca3f4267.jpg', '[0, 99, 1050, 486]', 'w_8f4d879'], dtype='<U22'), array(['a858bcec5.jpg', '[0, 62, 1050, 552]', 'w_2b069ba'], dtype='<U22'), array(['582bafa02.jpg', '[42, 33, 985, 379]', 'w_789c969'], dtype='<U22'), array(['6889b5f78.jpg', '[82, 0, 942, 346]', 'w_34ecf36'], dtype='<U22'), array(['0ddc09d88.jpg', '[93, 0, 939, 562]', 'w_5f20f03'], dtype='<U22'), array(['474195c88.jpg', '[49, 0, 984, 359]', 'w_15805cd'], dtype='<U22'), array(['7081b2cbb.jpg', '[0, 27, 1050, 604]', 'w_4516d31'], dtype='<U22'), array(['3a2ed0679.jpg', '[0, 0, 1050, 296]', 'w_d405854'], dtype='<U22'), array(['1a71a8e55.jpg', '[3, 244, 981, 391]', 'w_2964e0b'], dtype='<U22'), array(['b26b048d7.jpg', '[0, 117, 1050, 482]', 'w_0369a5c'], dtype='<U22'), array(['f40328013.jpg', '[0, 0, 1050, 476]', 'w_9b5109b'], dtype='<U22'), array(['a0616782d.jpg', '[0, 0, 1050, 335]', 'w_16b5050'], dtype='<U22'), array(['a389136a2.jpg', '[0, 0, 1050, 365]', 'w_e07b79f'], dtype='<U22'), array(['9c4a45ee6.jpg', '[109, 199, 944, 551]', 'w_fd6a3ad'], dtype='<U22'), array(['a77256a87.jpg', '[0, 136, 1050, 458]', 'w_700ebb4'], dtype='<U22'), array(['9d960e78b.jpg', '[53, 53, 765, 439]', 'new_whale']dtype='<U22'), array(['303af19d7.jpg', '[0, 0, 1050, 478]', 'w_8c25681'], dtype='<U22'), array(['fa0a4a0df.jpg', '[15, 0, 1016, 340]', 'w_d405854'], dtype='<U22'), array(['f0109bc35.jpg', '[138, 211, 897, 431]', 'w_88e4537'], dtype='<U22'), array(['ca2b11469.jpg', '[55, 194, 963, 518]', 'w_6caff0f'], dtype='<U22'), array(['44ec79568.jpg', '[73, 57, 968, 555]', 'w_2b069ba'], dtype='<U22'), array(['2aba65b94.jpg', '[0, 55, 1050, 494]', 'w_f0fe284'], dtype='<U22'), array(['20881b405.jpg', '[13, 142, 988, 446]', 'w_88e4537'], dtype='<U22'), array(['5d3948c2e.jpg', '[0, 16, 1050, 581]', 'w_9c506f6'], dtype='<U22'), array(['ad1c2ab6b.jpg', '[0, 100, 1050, 397]', 'w_a84be0c'], dtype='<U22'), array(['1bb0c48cd.jpg', '[0, 110, 1018, 621]', 'w_d72771c'], dtype='<U22'), array(['394230154.jpg', '[9, 0, 1050, 296]', 'w_d405854'], dtype='<U22'), array(['da6dfd5ae.jpg', '[0, 0, 1050, 323]', 'w_025911c'], dtype='<U22'), array(['db0699767.jpg', '[208, 122, 819, 463]', 'w_f48451c'], dtype='<U22'), array(['af5646a49.jpg', '[0, 50, 1050, 492]', 'w_9b5109b'], dtype='<U22'), array(['f14c33d69.jpg', '[0, 114, 1050, 462]', 'w_789c969'], dtype='<U22'), array(['e873e7fcd.jpg', '[1, 142, 1035, 510]', 'w_1f41b98'], dtype='<U22'), array(['292ffe4c6.jpg', '[12, 8, 995, 553]', 'w_9b5109b'], dtype='<U22'), array(['c4b94c917.jpg', '[24, 93, 987, 480]', 'w_4a28f21'], dtype='<U22'), array(['f7921867a.jpg', '[0, 0, 1050, 537]', 'w_27597ff'], dtype='<U22'), array(['c866a3ef7.jpg', '[42, 21, 1002, 405]', 'w_317c071'], dtype='<U22'), array(['f90975e25.jpg', '[176, 166, 983, 470]', 'w_8f1069a'], dtype='<U22'), array(['dcfd9b396.jpg', '[0, 0, 1050, 533]', 'w_0b1e4a6'], dtype='<U22'), array(['0fc2aa8c9.jpg', '[0, 0, 1035, 327]', 'w_488865e'], dtype='<U22'), array(['4cc93d8c6.jpg', '[0, 71, 991, 230]', 'new_whale'], dtype='<U22'), array(['34a75f58c.jpg', '[0, 57, 1044, 480]', 'w_700ebb4'], dtype='<U22'), array(['2669fa8f7.jpg', '[100, 88, 931, 371]', 'w_a10e633'], dtype='<U22'), array(['dff369521.jpg', '[120, 67, 903, 501]', 'w_2b069ba'], dtype='<U22'), array(['223eb87d2.jpg', '[0, 57, 1050, 568]', 'w_97f4b38'], dtype='<U22'), array(['b75579156.jpg', '[166, 24, 868, 424]', 'w_5e8e218'], dtype='<U22'), array(['9984d6765.jpg', '[0, 0, 1050, 447]', 'w_eaed433'], dtype='<U22'), array(['d43a9a8ee.jpg', '[93, 88, 932, 438]', 'w_34ecf36'], dtype='<U22'), array(['bd3932ec4.jpg', '[16, 0, 1008, 373]', 'w_aee1ccf'], dtype='<U22'), array(['bfb4fb107.jpg', '[228, 245, 851, 584]', 'w_f497e3f'], dtype='<U22'), array(['d0f2ea711.jpg', '[289, 195, 671, 355]', 'w_1f0cf0a'], dtype='<U22'), array(['b722aba55.jpg', '[155, 86, 546, 325]', 'w_c536a4a'], dtype='<U22'), array(['8fd54017f.jpg', '[56, 13, 996, 566]', 'w_bd1c3d5'], dtype='<U22'), array(['f7e293968.jpg', '[57, 0, 721, 284]', 'w_90c9763'], dtype='<U22'), array(['1354e606d.jpg', '[0, 51, 1050, 608]', 'w_789c969'], dtype='<U22'), array(['cb895752b.jpg', '[0, 45, 1050, 364]', 'w_53215c6'], dtype='<U22'), array(['f029b430a.jpg', '[27, 0, 990, 372]', 'w_700ebb4'], dtype='<U22'), array(['1bfa20d9e.jpg', '[53, 17, 982, 384]', 'w_5d5c6a6'], dtype='<U22'), array(['dcff666f1.jpg', '[83, 30, 928, 396]', 'w_564a34b'], dtype='<U22'), array(['12670516b.jpg', '[65, 102, 944, 453]', 'w_0369a5c'], dtype='<U22'), array(['d80b099d4.jpg', '[71, 0, 951, 513]', 'w_fd3e556'], dtype='<U22'), array(['515d6eb11.jpg', '[0, 71, 1042, 430]', 'w_9b5109b'], dtype='<U22'), array(['b633c4f72.jpg', '[27, 20, 994, 520]', 'w_5597026'], dtype='<U22'), array(['22f6a8328.jpg', '[0, 54, 998, 490]', 'w_e6450bc'], dtype='<U22'), array(['f299d7477.jpg', '[0, 0, 1050, 319]', 'w_f3b2948'], dtype='<U22'), array(['d7dfd581d.jpg', '[0, 145, 1050, 460]', 'w_3de579a'], dtype='<U22'), array(['d13fc7a48.jpg', '[0, 51, 1050, 504]', 'w_89f6097'], dtype='<U22'), array(['9fcd7af75.jpg', '[0, 0, 1045, 359]', 'w_025911c'], dtype='<U22'), array(['9203a9ac1.jpg', '[0, 2, 765, 348]', 'w_12fdac7'], dtype='<U22'), array(['34b486a84.jpg', '[0, 48, 1022, 438]', 'w_3de579a'], dtype='<U22'), array(['cfabe1bfc.jpg', '[0, 85, 1050, 547]', 'w_fd3e556'], dtype='<U22')]
-
-
-2. die die vom NN top 10 korrekt klassifiziert wurden mit ß-VAE encodings:
-[array(['ca5caa066.jpg', '[0, 0, 1050, 481]', 'w_698fcbe'], dtype='<U22'), array(['f104b0e52.jpg', '[0, 38, 1050, 409]', 'w_51fc1fc'], dtype='<U22'), array(['ad739e36a.jpg', '[31, 27, 301, 183]', 'w_5e8e218'], dtype='<U22'), array(['5b9390ac9.jpg', '[31, 85, 980, 453]', 'w_2b49489'], dtype='<U22'), array(['dcb35a093.jpg', '[0, 0, 1050, 403]', 'w_14330a0'], dtype='<U22'), array(['25435d97c.jpg', '[327, 263, 741, 432]','w_e966f36'], dtype='<U22'), array(['472fc49d1.jpg', '[181, 81, 880, 556]', 'w_d066f46'], dtype='<U22'), array(['c173a89dc.jpg', '[0, 14, 1041, 340]', 'w_cda3971'], dtype='<U22'), array(['b6dfbb60a.jpg', '[90, 178, 920, 405]', 'w_0369a5c'], dtype='<U22'), array(['1ef169d52.jpg', '[0, 14, 260, 102]', 'w_0bc078c'], dtype='<U22'), array(['4904bdae4.jpg', '[281, 222, 772, 417]', 'w_9c506f6'], dtype='<U22'), array(['e55fe9de7.jpg', '[217, 0, 787, 389]', 'w_733f661'], dtype='<U22'), array(['451bda32b.jpg', '[62, 99, 1030, 518]', 'w_2b069ba'], dtype='<U22'), array(['bd9bd86eb.jpg', '[246, 0, 851, 590]', 'w_3de579a'], dtype='<U22'),array(['86648ec62.jpg', '[0, 98, 830, 256]', 'w_01f14e1'], dtype='<U22'), array(['44cd30b4c.jpg', '[0, 0, 1050, 349]', 'w_51fc1fc'], dtype='<U22'), array(['a2e01f223.jpg', '[553, 197, 976, 338]', 'w_0369a5c'], dtype='<U22'), array(['0e95eb004.jpg', '[68, 38, 1015, 522]', 'new_whale'], dtype='<U22'), array(['21f352cba.jpg', '[0, 165, 1021, 511]', 'w_cef693e'], dtype='<U22'), array(['9bf97da50.jpg', '[0, 112, 826, 359]', 'w_0a155b9'], dtype='<U22'), array(['ad8fd0f87.jpg', '[0, 116, 1050, 441]', 'w_b403feb'], dtype='<U22'), array(['ace5b807e.jpg', '[123, 246, 902, 509]', 'w_83cc0ec'], dtype='<U22'), array(['00fee3975.jpg', '[302, 256, 750, 403]', 'w_a9304b9'], dtype='<U22'), array(['ce0c11d45.jpg', '[20, 0, 1028, 427]', 'w_012678c'], dtype='<U22'), array(['72c3ce75c.jpg', '[0, 0, 1050, 416]', 'w_a5e6557'], dtype='<U22'), array(['a39babc55.jpg', '[25, 0, 1016, 342]', 'w_d405854'], dtype='<U22'), array(['d485815e6.jpg', '[183, 91, 828, 557]', 'w_343f088'], dtype='<U22'), array(['ceefe609f.jpg', '[256, 91, 748, 281]', 'w_a9304b9'], dtype='<U22'), array(['ca07480bd.jpg', '[82, 26, 978, 602]', 'w_5a2634c'], dtype='<U22'), array(['f8886d86a.jpg', '[28, 131, 1022, 593]', 'w_bf960fa'], dtype='<U22'), array(['2a754e737.jpg', '[184, 125, 860, 464]', 'w_1f0cf0a'], dtype='<U22'), array(['65d0f87e6.jpg', '[0, 0, 1050, 415]', 'w_cd4cb49'], dtype='<U22'), array(['fad6a739c.jpg', '[0, 16, 1050, 397]', 'w_16b5050'], dtype='<U22'), array(['633c4416c.jpg', '[127, 133, 876,452]', 'w_4516ff1'], dtype='<U22'), array(['397ae55e0.jpg', '[267, 276, 922, 475]', 'w_cef693e'], dtype='<U22'), array(['447d81e1e.jpg', '[13, 131, 904, 282]', 'w_f61b957'], dtype='<U22'), array(['f4b6fc1b7.jpg', '[5, 0, 1050, 450]', 'w_778e474'], dtype='<U22'), array(['cd1b7a956.jpg', '[115, 200, 903, 481]', 'w_700ebb4'], dtype='<U22'), array(['e46f88b1f.jpg', '[94, 0, 935, 517]', 'w_17b0d3a'], dtype='<U22'), array(['386587034.jpg', '[0, 24, 970, 536]', 'w_488865e'], dtype='<U22'), array(['034e5fe12.jpg', '[0, 37, 1050, 418]', 'w_cbb15d2'], dtype='<U22'), array(['b3c54d7f4.jpg', '[317, 280, 766, 477]', 'w_778e474'], dtype='<U22'), array(['8be0c62d2.jpg', '[0, 209, 958, 322]', 'w_1d0830e'], dtype='<U22'), array(['5e30f61ab.jpg', '[73, 46, 960, 509]', 'w_60cf87c'], dtype='<U22'), array(['1cc05f07d.jpg', '[120, 87, 674, 365]', 'w_89f521e'], dtype='<U22'), array(['b7a05f0da.jpg', '[0, 155, 1050, 499]', 'w_f5bf6df'], dtype='<U22'), array(['6e9c8d590.jpg', '[88, 10, 582, 355]', 'w_5a2634c'], dtype='<U22'), array(['cbddbfd33.jpg', '[0, 0, 1050,354]', 'w_b877008'], dtype='<U22'), array(['0117ac323.jpg', '[19, 171, 1008, 549]', 'w_4516d31'], dtype='<U22'), array(['0d3e8320a.jpg', '[26, 0, 992, 364]', 'w_fd3e556'], dtype='<U22'), array(['99e2778d7.jpg','[24, 0, 1028, 349]', 'w_107b98e'], dtype='<U22'), array(['97fcad729.jpg', '[61, 0, 977, 441]', 'w_3976c05'], dtype='<U22'), array(['ff84b05fd.jpg', '[0, 0, 1050, 481]', 'w_d405854'], dtype='<U22'), array(['f7fc58a25.jpg', '[2, 68, 1004, 552]', 'w_af367c3'], dtype='<U22'), array(['2f0b9fe47.jpg', '[0, 13, 1050, 383]', 'w_94a7669'], dtype='<U22'), array(['4887aa5fb.jpg', '[28, 0, 665, 299]', 'w_b3df6bf'], dtype='<U22'), array(['86ed545fc.jpg', '[0, 79, 1050, 567]', 'w_f765256'], dtype='<U22'), array(['ad1577a29.jpg', '[0, 0, 1050, 335]', 'w_5773c71'], dtype='<U22'), array(['5c4f42de0.jpg', '[10, 0, 1021, 374]', 'w_2009f8b'], dtype='<U22'), array(['cc8aee713.jpg', '[0, 0, 1050, 376]', 'w_eaa5dbb'], dtype='<U22'), array(['fd198e007.jpg', '[221, 182, 665, 303]', 'w_0369a5c'], dtype='<U22'), array(['2697c1066.jpg', '[35, 252, 976, 464]', 'w_fdcaaa8'], dtype='<U22'), array(['972893a51.jpg', '[92, 152, 951, 325]', 'w_23a388d'], dtype='<U22'), array(['0338c2abc.jpg', '[0, 67, 1023, 395]', 'new_whale'], dtype='<U22'), array(['0e76405ec.jpg', '[0, 0, 1050, 357]', 'w_789c969'], dtype='<U22'), array(['b2b6128eb.jpg', '[49, 0, 961, 431]', 'new_whale'], dtype='<U22'), array(['767b2b9cd.jpg', '[7, 0, 780, 327]', 'w_4516ff1'], dtype='<U22'), array(['bcd3b6249.jpg', '[105, 153, 887, 480]', 'w_9b5109b'], dtype='<U22'), array(['82fa0f1b9.jpg', '[99, 0, 934, 667]', 'w_23ce00e'], dtype='<U22'), array(['6138dce83.jpg', '[17, 0, 1019, 511]', 'w_db68456'], dtype='<U22'), array(['cb33cb792.jpg', '[154, 247, 813, 406]', 'w_ae6ac74'], dtype='<U22'), array(['6af30a730.jpg', '[0, 0, 1050, 531]', 'w_59052ad'], dtype='<U22'), array(['5adafc2cf.jpg', '[0, 0, 1050, 304]', 'w_0ee7878'], dtype='<U22'), array(['bd6094397.jpg', '[60, 0, 758, 483]', 'w_fd3e556'], dtype='<U22'), array(['d94423ec0.jpg', '[205, 417, 566, 597]', 'w_9d86594'], dtype='<U22'), array(['f3af59c7a.jpg', '[0, 108, 900, 383]', 'w_5cc76f8'], dtype='<U22'), array(['36d6dcd94.jpg', '[511, 307, 736, 468]', 'w_a8c2847'], dtype='<U22'), array(['a858bcec5.jpg', '[0, 62, 1050, 552]', 'w_2b069ba'], dtype='<U22'), array(['582bafa02.jpg', '[42, 33, 985, 379]', 'w_789c969'], dtype='<U22'), array(['cf6dd03da.jpg', '[99, 93, 927, 504]', 'w_04003e9'], dtype='<U22'), array(['0ddc09d88.jpg', '[93, 0, 939, 562]', 'w_5f20f03'], dtype='<U22'), array(['81e06e68c.jpg', '[99, 69, 979, 514]', 'w_5ff2049'], dtype='<U22'), array(['474195c88.jpg', '[49, 0, 984, 359]', 'w_15805cd'], dtype='<U22'), array(['7c509d68f.jpg', '[0, 35, 1050, 376]', 'w_78fbecd'], dtype='<U22'), array(['3a2ed0679.jpg', '[0, 0, 1050, 296]', 'w_d405854'], dtype='<U22'), array(['1a71a8e55.jpg', '[3, 244, 981, 391]', 'w_2964e0b'], dtype='<U22'), array(['712fc66f5.jpg', '[0, 0, 1050, 345]', 'w_9b5109b'], dtype='<U22'), array(['f40328013.jpg', '[0, 0, 1050, 476]', 'w_9b5109b'], dtype='<U22'), array(['a0616782d.jpg', '[0, 0, 1050, 335]', 'w_16b5050'], dtype='<U22'), array(['9d960e78b.jpg', '[53, 53, 765, 439]', 'new_whale'], dtype='<U22'), array(['95c07f300.jpg', '[0, 0, 1050, 523]', 'w_d72771c'], dtype='<U22'), array(['e76ef67bf.jpg', '[0, 0, 1050, 359]', 'w_343f088'], dtype='<U22'), array(['303af19d7.jpg', '[0, 0, 1050, 478]', 'w_8c25681'], dtype='<U22'), array(['fa0a4a0df.jpg', '[15, 0, 1016, 340]', 'w_d405854'], dtype='<U22'), array(['ca2b11469.jpg', '[55, 194, 963, 518]', 'w_6caff0f'], dtype='<U22'), array(['5d3948c2e.jpg', '[0, 16, 1050, 581]', 'w_9c506f6'], dtype='<U22'), array(['ad1c2ab6b.jpg', '[0, 100, 1050, 397]', 'w_a84be0c'], dtype='<U22'), array(['1bb0c48cd.jpg', '[0, 110, 1018, 621]', 'w_d72771c'], dtype='<U22'), array(['23351a9cd.jpg', '[0, 106, 990, 462]', 'w_2b069ba'], dtype='<U22'), array(['394230154.jpg', '[9, 0, 1050, 296]', 'w_d405854'], dtype='<U22'), array(['da6dfd5ae.jpg', '[0, 0, 1050, 323]', 'w_025911c'], dtype='<U22'), array(['0d94bdad3.jpg', '[76, 15, 946, 533]', 'w_3de579a'], dtype='<U22'), array(['db0699767.jpg', '[208, 122, 819, 463]', 'w_f48451c'], dtype='<U22'), array(['0c4b0827e.jpg', '[0, 129, 1050, 469]', 'w_4690940'], dtype='<U22'), array(['af5646a49.jpg', '[0, 50, 1050, 492]', 'w_9b5109b'], dtype='<U22'), array(['f14c33d69.jpg', '[0, 114, 1050, 462]', 'w_789c969'], dtype='<U22'), array(['2e8e75096.jpg', '[0, 0, 1034, 486]', 'w_df27de9'], dtype='<U22'), array(['c4b94c917.jpg', '[24, 93, 987, 480]', 'w_4a28f21'], dtype='<U22'), array(['6e3004f1f.jpg', '[0, 0, 1050, 438]', 'w_c058057'], dtype='<U22'), array(['f7921867a.jpg', '[0, 0, 1050, 537]', 'w_27597ff'], dtype='<U22'), array(['c866a3ef7.jpg', '[42, 21, 1002, 405]', 'w_317c071'], dtype='<U22'), array(['cadfb43e5.jpg', '[66, 0, 955, 416]', 'w_fdf618d'], dtype='<U22'), array(['f90975e25.jpg', '[176, 166, 983, 470]', 'w_8f1069a'], dtype='<U22'), array(['ab09d2ec8.jpg', '[22, 223, 985, 523]', 'w_9b5109b'], dtype='<U22'), array(['646936448.jpg', '[0, 0, 1050, 422]', 'w_a586dce'], dtype='<U22'), array(['4cc93d8c6.jpg', '[0, 71, 991, 230]', 'new_whale'], dtype='<U22'), array(['dff369521.jpg', '[120, 67, 903, 501]', 'w_2b069ba'], dtype='<U22'), array(['223eb87d2.jpg', '[0, 57, 1050, 568]', 'w_97f4b38'], dtype='<U22'), array(['b75579156.jpg', '[166, 24, 868, 424]', 'w_5e8e218'], dtype='<U22'), array(['bfb4fb107.jpg', '[228, 245, 851, 584]', 'w_f497e3f'], dtype='<U22'), array(['d0f2ea711.jpg', '[289, 195, 671, 355]', 'w_1f0cf0a'], dtype='<U22'), array(['b722aba55.jpg', '[155, 86, 546, 325]', 'w_c536a4a'], dtype='<U22'), array(['cb895752b.jpg', '[0, 45, 1050, 364]', 'w_53215c6'], dtype='<U22'), array(['f029b430a.jpg', '[27, 0, 990, 372]', 'w_700ebb4'], dtype='<U22'), array(['1cfd25df6.jpg', '[126, 84, 967, 455]', 'w_d72771c'], dtype='<U22'), array(['a97caed52.jpg', '[9, 239, 1006, 389]', 'w_23a388d'], dtype='<U22'), array(['12670516b.jpg', '[65, 102, 944, 453]', 'w_0369a5c'], dtype='<U22'), array(['04a973240.jpg', '[0, 0, 1050, 387]', 'w_11ff425'], dtype='<U22'), array(['515d6eb11.jpg', '[0, 71, 1042, 430]', 'w_9b5109b'], dtype='<U22'), array(['af8d5b6d7.jpg', '[112, 0, 898, 504]', 'w_d494351'], dtype='<U22'), array(['d1e4bcc89.jpg', '[0, 0, 1050, 292]', 'w_51e7506'], dtype='<U22'), array(['fb929ab01.jpg', '[0, 0, 1026, 421]', 'w_dd88965'], dtype='<U22'), array(['b82b12215.jpg', '[36, 64, 997, 458]', 'w_34120de'], dtype='<U22'), array(['81b79b1fd.jpg', '[45, 0, 1005, 456]', 'w_fd3e556'], dtype='<U22'), array(['9fcd7af75.jpg', '[0, 0, 1045, 359]', 'w_025911c'], dtype='<U22'), array(['9203a9ac1.jpg', '[0, 2, 765, 348]', 'w_12fdac7'], dtype='<U22'), array(['34b486a84.jpg', '[0, 48, 1022, 438]', 'w_3de579a'], dtype='<U22')]
+Siamese:
+test accuracy: 0.016672707502718376
+________________________________________________
+VAE

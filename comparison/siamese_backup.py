@@ -43,11 +43,11 @@ class SiameseNetwork(nn.Module):
         #print(x.size())
         x = nn.ReLU()(self.c1(x))
         #print(x.size())
-        x = self.bn1d(x)
+        #x = self.bn1d(x)
         x = nn.Dropout2d(0.25)(x)
         x = nn.ReLU()(self.c2(x))
         #print(x.size())
-        x = self.b1d32(x)
+        #x = self.b1d32(x)
         x = nn.Sigmoid()(self.c3(x))
         return(x)
 
@@ -321,6 +321,6 @@ def main():
 
 torch.cuda.empty_cache()
 #trial()
-train(500,0.0001,64,np.load("../ae/ae_training_encodings_simple_v2.npy"),np.load("../ae/ae_training_ids_simple_v2.npy"))
-matchTop10()
-#main()
+#train(500,0.0001,64,np.load("../ae/ae_training_encodings_simple_v2.npy"),np.load("../ae/ae_training_ids_simple_v2.npy"))
+#matchTop10()
+main()

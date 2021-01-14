@@ -42,19 +42,19 @@ and everyX which determines how often the images in both image
 batches should be of the same individual
 Returns three torch tensors two of images and one of labels 
 """
-def createBatch(batch_size,enc,ids,everyX=3):
+def createBatch(batch_size,enc,ids,everyX=2):
   def find_same(id_,idx):
     for i in range(len(ids)):
       if ids[i,-1] == id_ and not (idx == i):
         return i
     return -1
 
-  _def find_same_two():
+  def find_same_two():
     i1 = np.random.randint(0,len(ids))
     i2 = find_same(ids[i1,-1],i1)
     while i1 == i2 or i2 == -1:
       i1 = np.random.randint(0,len(ids))
-      i2 = findsame(ids[i1,-1],i1)
+      i2 = find_same(ids[i1,-1],i1)
     return i1,i2
 
   b1 = []
@@ -125,6 +125,7 @@ def top10Siamese(net_path,tr_enc_path,tr_ids_path,te_enc_path,te_ids_path,reduce
     tn = 0
     fn = 0
     model = torch.load(net_path).cuda()
+    model.eval()
     for i in range(len(te_ids)):
       te = torch.from_numpy(np.array([te_enc[i],te_enc[i]])).float().cuda()
       matches = []
@@ -175,21 +176,26 @@ is used as a validation set every 5 epochs
 The network trained network is saved at the save_path
 """
 def train(epochs,learning_rate,batch_size,tr_enc_path,tr_ids_path,save_path="siamese_network_vae_correct_v2_2.pth",size1=128,size2=32,validation_split=1/3):
-    tr_enc = np.load(tr_enc_path)
-    tr_ids = np.load(tr_ids_path)
-    tr_idx = cleanDataset(tr_ids)
-    set1 = tr_enc[tr_idx]
-    ids1 = tr_ids[tr_idx]
+    set1 = np.load(tr_enc_path)
+    ids1 = np.load(tr_ids_path)
+    tr_idx = cleanDataset(ids1)
+    set1 = set1[tr_idx]
+    ids1 = ids1[tr_idx]
+    validation_split = 1/3
     val_set_size = int(len(ids1)*validation_split)
     val_set = set1[:val_set_size]
     val_ids = ids1[:val_set_size]
     set1 = set1[val_set_size:]
     ids1 = ids1[val_set_size:]
-    inputsize = set1[0].size()
+    inputsize = len(set1[0])
     model = SiameseNetwork(inputsize,size1,size2).cuda()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     bce = nn.BCELoss()
-    es = EarlyStopper(patience=s0,delta=0.1,save_path=save_path,save=True)
+    es = EarlyStopper(patience=20,delta=0.1,save_path=save_path,save=True)
+    training_losses = []
+    training_accuracies = []
+    validation_losses = []
+    validation_accuracies = []
     for epoch in range(epochs):
         total_train_loss = 0
         optimizer.zero_grad()
@@ -205,51 +211,94 @@ def train(epochs,learning_rate,batch_size,tr_enc_path,tr_ids_path,save_path="sia
             total_train_loss += loss
             labels.extend(l[:,0].tolist())
             predictions.extend(o[:,0].tolist())
+        training_losses.append(loss.item())
         a = accuracy_score(labels,np.where(np.array(predictions) < 0.5, 0.0,1.0))
+        training_accuracies.append(a)
         r = recall_score(labels,np.where(np.array(predictions) < 0.5, 0.0,1.0))
+        stop_epoch = epoch
         if epoch%5 == 0:
             val_loss = 0
             vpredictions = []
             model.eval()
+            vlabels = []
             with torch.no_grad():
                 for i in range(int(np.ceil(len(val_set)/batch_size))):
                     b1,b2,l = createBatch(batch_size,val_set,val_ids)
                     o = model(b1,b2)
-                    loss = mse(o,l)
+                    loss = bce(o,l)
                     val_loss += loss
+                    vlabels.extend(l[:,0].tolist())
                     vpredictions.extend(o[:,0].tolist())
-                va = accuracy_score(l,np.where(np.array(vpredictions) < 0.5, 0.0,1.0))
-                vr = recall_score(labels,np.where(np.array(vpredictions) < 0.5, 0.0,1.0))
+                va = accuracy_score(vlabels,np.where(np.array(vpredictions) < 0.5, 0.0,1.0))
+                vr = recall_score(vlabels,np.where(np.array(vpredictions) < 0.5, 0.0,1.0))
                 print("EPOCH " + str(epoch) + " with loss "  + str(val_loss.item()) + ", accuracy " + str(va) + " and recall " + str(vr))
                 stop = es.earlyStopping(val_loss,model)
+                validation_losses.append(val_loss.item())
+                validation_accuracies.append(va)
                 if stop:
                     print("TRAINING FINISHED AFTER " + str(epoch) + " EPOCHS. K BYE.")
                     break
+    if (int(stop_epoch/5)-20) < len(validation_losses):
+        final_loss = validation_losses[int(stop_epoch/5)-20] #every 5 epochs validation and 20 coz of patience
+        final_accuracy = validation_accuracies[int(stop_epoch/5)-20]
+    else:
+        final_loss = validation_losses[-1]
+        final_accuracy = validation_accuracies[-1]
+    #WRITE OPTIM 
+    filename = str("siamese_optim_losses_v2.txt")
+    file=open(filename,'a')
+    file.write("Training loss:")
+    file.write('\n')
+    for l in training_losses:
+        file.write(str(l))
+        file.write('\n')
+    file.write("Training accuracy:")
+    file.write('\n')
+    for l in training_accuracies:
+        file.write(str(l))
+        file.write('\n')
+    file.write("Validation loss:")
+    file.write('\n')
+    for l in validation_losses:
+        file.write(str(l))
+        file.write('\n')
+    file.write("Validation accuracy:")
+    file.write('\n')
+    for l in validation_accuracies:
+        file.write(str(l))
+        file.write('\n')
+    file.write("final_loss:" + str(final_loss)) 
+    file.write("final_accuracy:" + str(final_accuracy))
+    file.write('\n') 
+    file.close()
 
 
 def objective(trial):
     epochs = 1000
     #learning_rate =trial.suggest_loguniform("learning_rate", 1e-5, 1e-3)
     #batch_size = trial.suggest_int("batch_size",8,32,8)
-    learning_rate = 0.0001
+    learning_rate = 0.00001
     batch_size = 64
-    set1 = np.load("../ae/ae_training_encodings_simple.npy")
-    ids1 = np.load("../ae/ae_training_ids_simple.npy")
-    size1 = trial.suggest_categorical("size1",[1024,512,256])
-    size2 = trial.suggest_categorical("size2",[32,64,128])
+    size1 = 512#trial.suggest_categorical("size1",[1024,512,256])
+    size2 = 64#trial.suggest_categorical("size2",[32,64,128])
+    print("Size1:" + str(size1))
+    print("Size2:" + str(size2))
+    set1 = np.load("../ae/ae_training_encodings_simple_v2.npy")
+    ids1 = np.load("../ae/ae_training_ids_simple_v2.npy")
     tr_idx = cleanDataset(ids1)
-    set1 = set1[tr_ids]
+    set1 = set1[tr_idx]
     ids1 = ids1[tr_idx]
+    validation_split = 1/3
     val_set_size = int(len(ids1)*validation_split)
     val_set = set1[:val_set_size]
     val_ids = ids1[:val_set_size]
     set1 = set1[val_set_size:]
     ids1 = ids1[val_set_size:]
-    inputsize = set1[0].size()
+    inputsize = len(set1[0])
     model = SiameseNetwork(inputsize,size1,size2).cuda()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     bce = nn.BCELoss()
-    es = EarlyStopper(patience=20,delta=0.1,save_path=save_path,save=True)
+    es = EarlyStopper(patience=20,delta=0.1,save_path="siamese.pth",save=False)
     validation_losses = []
     validation_accuracies = []
     for epoch in range(epochs):
@@ -274,15 +323,17 @@ def objective(trial):
             val_loss = 0
             vpredictions = []
             model.eval()
+            vlabels = []
             with torch.no_grad():
                 for i in range(int(np.ceil(len(val_set)/batch_size))):
                     b1,b2,l = createBatch(batch_size,val_set,val_ids)
                     o = model(b1,b2)
-                    loss = mse(o,l)
+                    loss = bce(o,l)
                     val_loss += loss
+                    vlabels.extend(l[:,0].tolist())
                     vpredictions.extend(o[:,0].tolist())
-                va = accuracy_score(l,np.where(np.array(vpredictions) < 0.5, 0.0,1.0))
-                vr = recall_score(labels,np.where(np.array(vpredictions) < 0.5, 0.0,1.0))
+                va = accuracy_score(vlabels,np.where(np.array(vpredictions) < 0.5, 0.0,1.0))
+                vr = recall_score(vlabels,np.where(np.array(vpredictions) < 0.5, 0.0,1.0))
                 print("EPOCH " + str(epoch) + " with loss "  + str(val_loss.item()) + ", accuracy " + str(va) + " and recall " + str(vr))
                 stop = es.earlyStopping(val_loss,model)
                 trial.report(val_loss,epoch)
@@ -306,12 +357,13 @@ def objective(trial):
     file.write("final_accuracy:" + str(final_accuracy))
     file.write('\n') 
     file.close()
+    return final_loss
 
 
 def optimal_optimisation():
     torch.cuda.set_device(0)
     study = optuna.create_study(direction="minimize")
-    study.optimize(objective,n_trials=5)
+    study.optimize(objective,n_trials=1)
 
     pruned_trials = [t for t in study.trials if t.state == optuna.trial.TrialState.PRUNED]
     complete_trials = [t for t in study.trials if t.state == optuna.trial.TrialState.COMPLETE]

@@ -1,28 +1,56 @@
-
+layer_amount:4layer_size:32extradense:Truefinal_loss:8.911086082458496          m
+layer_amount:4layer_size:32extradense:Falsefinal_loss:17.031415939331055        x
+layer_amount:4layer_size:32extradense:Falsefinal_loss:8.902318000793457         m
+layer_amount:4layer_size:32extradense:Falsefinal_loss:17.091718673706055        x
+mean: 12.98
 layer_amount:4layer_size:64extradense:Truefinal_loss:9.25606632232666
-layer_amount:4layer_size:64extradense:Falsefinal_loss:9.106532096862793
 layer_amount:4layer_size:64extradense:Truefinal_loss:9.170146942138672
-layer_amount:4layer_size:128extradense:Falsefinal_loss:17.419076919555664
+layer_amount:4layer_size:64extradense:Falsefinal_loss:9.106532096862793
+mean: 9.17
+layer_amount:4layer_size:128extradense:Falsefinal_loss:17.419076919555664       x
+layer_amount:4layer_size:128extradense:Falsefinal_loss:8.74088191986084         m
+layer_amount:4layer_size:128extradense:Falsefinal_loss:8.882735252380371        m
+mean: 11.67
 
-layer_amount:5layer_size:32extradense:Falsefinal_loss:8.985112190246582
 layer_amount:5layer_size:32extradense:Truefinal_loss:9.261612892150879
-layer_amount:5layer_size:32extradense:Truefinal_loss:8.955058097839355
+layer_amount:5layer_size:32extradense:Truefinal_loss:8.955058097839355          m
+layer_amount:5layer_size:32extradense:Falsefinal_loss:8.836469650268555         m
+layer_amount:5layer_size:32extradense:Falsefinal_loss:8.985112190246582         m
+layer_amount:5layer_size:32extradense:Falsefinal_loss:8.637499809265137         m ->>>>total min.
+layer_amount:5layer_size:32extradense:Falsefinal_loss:16.682842254638672        x
+mean: 10.22
 layer_amount:5layer_size:64extradense:Truefinal_loss:9.128344535827637
-layer_amount:5layer_size:64extradense:Falsefinal_loss:17.092788696289062
+layer_amount:5layer_size:64extradense:Falsefinal_loss:17.092788696289062        x
 layer_amount:5layer_size:64extradense:Falsefinal_loss:9.110434532165527
-layer_amount:5layer_size:64extradense:Falsefinal_loss:16.5427303314209
-layer_amount:5layer_size:64extradense:Falsefinal_loss:17.0601806640625
-layer_amount:5layer_size:128extradense:Falsefinal_loss:8.8997163772583
+layer_amount:5layer_size:64extradense:Falsefinal_loss:16.5427303314209          x
+layer_amount:5layer_size:64extradense:Falsefinal_loss:17.0601806640625          x
+mean: 13.84
+layer_amount:5layer_size:128extradense:Falsefinal_loss:8.8997163772583          m
+layer_amount:5layer_size:128extradense:Falsefinal_loss:17.017040252685547       x
+layer_amount:5layer_size:128extradense:Falsefinal_loss:17.21660041809082        x
+layer_amount:5layer_size:128extradense:Falsefinal_loss:8.972959518432617        m
+mean: 13.02
 
+layer_amount:6layer_size:32extradense:Truefinal_loss:17.13347816467285          x
 layer_amount:6layer_size:32extradense:Truefinal_loss:9.454505920410156
+layer_amount:6layer_size:32extradense:Truefinal_loss:9.28296947479248
+layer_amount:6layer_size:32extradense:Truefinal_loss:16.866207122802734         x  
 layer_amount:6layer_size:32extradense:Truefinal_loss:9.57880687713623
-layer_amount:6layer_size:32extradense:Truefinal_loss:17.222736358642578
-layer_amount:6layer_size:32extradense:Falsefinal_loss:16.963518142700195
-layer_amount:6layer_size:32extradense:Truefinal_loss:16.866207122802734
-layer_amount:6layer_size:32extradense:Falsefinal_loss:8.892602920532227
-layer_amount:6layer_size:64extradense:Falsefinal_loss:16.710140228271484
-layer_amount:6layer_size:64extradense:Falsefinal_loss:16.928136825561523
-layer_amount:6layer_size:128extradense:Falsefinal_loss:16.82305335998535
-layer_amount:6layer_size:128extradense:Falsefinal_loss:8.757772445678711
+layer_amount:6layer_size:32extradense:Truefinal_loss:17.222736358642578         x
+layer_amount:6layer_size:32extradense:Falsefinal_loss:16.637508392333984        x
+layer_amount:6layer_size:32extradense:Falsefinal_loss:16.963518142700195        x
+layer_amount:6layer_size:32extradense:Falsefinal_loss:8.892602920532227         m
+mean: 13:55
+layer_amount:6layer_size:64extradense:Falsefinal_loss:16.710140228271484        x
+layer_amount:6layer_size:64extradense:Falsefinal_loss:16.928136825561523        x
+mean: 16.81
+layer_amount:6layer_size:128extradense:Falsefinal_loss:16.82305335998535        x
+layer_amount:6layer_size:128extradense:Falsefinal_loss:8.757772445678711        m
 layer_amount:6layer_size:128extradense:Falsefinal_loss:9.100621223449707
-layer_amount:6layer_size:128extradense:Falsefinal_loss:17.26328468322754
+layer_amount:6layer_size:128extradense:Falsefinal_loss:17.26328468322754        x
+mean: 12.98
+
+factor:6 final_acc:0.9443155452436195 final_loss:607.0779418945312
+factor:8 final_acc:0.9379350348027842 final_loss:603.5798950195312
+factor:10 final_acc:0.904292343387471 final_loss:1224.4041748046875
+factor:29 final_acc:0.9037122969837587 final_loss:4559.18115234375

@@ -21,6 +21,7 @@ from PIL import Image
 import random
 from skimage import io, util, transform, color,exposure,filters
 import optuna
+import datetime
 
 from dataset import getDatasets, WhaleDataset
 from earlystopper import EarlyStopper
@@ -196,9 +197,11 @@ def loss_fn(recon_x, x):   # defining loss function for va-AE (loss= reconstruct
     return l
 
 def trainNet(epochs,learning_rate,batch_size,data_path,layers,layer_size,save=True):
+    now = datetime.datetime.now()
+    print(str(now))
     train_loader,val_loader = getDatasets(data_path,batch_size)
     model = facenetAE(layer_amount=layers,layer_size=layer_size).cuda()
-    es = EarlyStopper(10,0.1,str("AE_earlystopsave_4_simple_v2.pth"),save)
+    es = EarlyStopper(10,0.1,str("AE_earlystopsave_4_simple_v2_2.pth"),save)
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     #TRAINING
     training_losses = []
@@ -214,7 +217,9 @@ def trainNet(epochs,learning_rate,batch_size,data_path,layers,layer_size,save=Tr
             lost.backward() 
             optimizer.step()
             total_train_loss += lost
-        #print("train loss " + str(total_train_loss.detach().cpu().item()))
+        print("train loss " + str(total_train_loss.detach().cpu().item()))
+        now = datetime.datetime.now()
+        print(str(now))
         training_losses.append(total_train_loss.detach().cpu().item()) 
         stop_epoch = epoch
         #VALIDATION 
@@ -236,7 +241,7 @@ def trainNet(epochs,learning_rate,batch_size,data_path,layers,layer_size,save=Tr
                 break
     #SAVE LOSSES TO FILE
     if save:
-        filename = str("AE_losses_" + str(layers)+ "_" + str(layer_size) +"_simple.txt")
+        filename = str("AE_losses_" + str(layers)+ "_" + str(layer_size) +"_simple_v2_2.txt")
         file=open(filename,'w')
         file.write("trained with learning rate " + str(learning_rate) + ", batch size " + str(batch_size) + ", planned epochs " + str(epochs) + " but only took " + str(stop_epoch) + " epochs.")
         file.write("training_losses")
@@ -253,16 +258,7 @@ def trainNet(epochs,learning_rate,batch_size,data_path,layers,layer_size,save=Tr
 
 def evalSet(filepath,network_path=None):
     #get data
-    imagelist = []
-    with open(filepath, newline='') as csvfile:
-        reader = csv.reader(csvfile, delimiter=',')
-        for row in reader:
-            name = str(row[0])
-            box = (str(row[1])[1:-1]).split(",")
-            bbox = [int(b) for b in box]
-            imagelist.append([name,bbox])
-    dataset = WhaleDataset(imagelist,512)
-    loader = torch.utils.data.DataLoader(dataset, batch_size=2,num_workers=2)
+    loader, v_loader = getDatasets(filepath,8,validation_split=0,reduction=1,raw=False,augment=False)
     #get model
     if network_path:
         model = torch.load(network_path)
@@ -286,7 +282,7 @@ def objective(trial):
     learning_rate = 0.0001
     batch_size = 8
     layer_amount = trial.suggest_int("layer_amount",4,6,1)
-    layer_size = trial.suggest_categorical("layer_size",[64,128])#,256])
+    layer_size = trial.suggest_categorical("layer_size",[32,64,128])#,256])
     extradense = False #trial.suggest_categorical("extradense",[True,False])
     #print("BATCH SIZE: " + str(batch_size))
     print("Layer amount: " + str(layer_amount))
@@ -346,101 +342,11 @@ def objective(trial):
     file.close()
     return final_loss
 
-def objective_small(trial):
-    epochs = 1000
-    data_path="../data/trainingset_final_v2.csv"
-    #learning_rate =trial.suggest_loguniform("learning_rate", 1e-5, 1e-3)
-    #batch_size = trial.suggest_int("batch_size",8,32,8)
-    learning_rate = 0.0001
-    batch_size = 8
-    layer_amount = trial.suggest_int("layer_amount",4,6,1)
-    layer_size = 32#trial.suggest_categorical("layer_size",[32,64])#,256])
-    extradense = trial.suggest_categorical("extradense",[True,False])
-    #print("BATCH SIZE: " + str(batch_size))
-    print("Layer amount: " + str(layer_amount))
-    print("Layer size: " + str(layer_size))
-    print("Extra dense: " + str(extradense))
-    train_loader,val_loader = getDatasets(data_path,batch_size)
-    model = facenetAE(layer_amount=layer_amount,layer_size=layer_size,extradense=extradense).cuda()
-    es = EarlyStopper(10,0.1,str("AE_earlystopsave_4_simple_v2.pth"),False)
-    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-    #TRAINING
-    training_losses = []
-    validation_losses = []
-    for epoch in range(epochs):
-        total_train_loss = 0
-        model.train()
-        for inputs in train_loader:
-            optimizer.zero_grad()
-            inputs = inputs.float().cuda()
-            outputs = model(inputs)
-            lost = loss_fn(outputs, inputs)
-            lost.backward() 
-            optimizer.step()
-            total_train_loss += lost
-        #print("train loss " + str(total_train_loss.detach().cpu().item()))
-        training_losses.append(total_train_loss.detach().cpu().item()) 
-        stop_epoch = epoch
-        #VALIDATION 
-        if epoch % 10 == 0: 
-            model.eval()
-            with torch.no_grad():
-                total_val_loss = 0
-                for vinputs in val_loader:
-                    vinputs = vinputs.float().cuda()
-                    val_outputs = model(vinputs)
-                    vlost  = loss_fn(val_outputs,vinputs)
-                    total_val_loss += vlost
-            validation_losses.append(total_val_loss.detach().cpu().item())
-            print("Epoch " + str(epoch) + " with val loss " + str(validation_losses[-1]))
-            stop = es.earlyStopping(total_val_loss,model)
-            #EARLY STOPPING
-            if stop:
-                print("TRAINING FINISHED AFTER " + str(epoch) + " EPOCHS. K BYE.")
-                break
-            trial.report(total_val_loss,epoch)
-    if (int(stop_epoch/10)-10) < len(validation_losses):
-        final_loss = validation_losses[int(stop_epoch/10)-10] #10 coz of patience = 10
-    else:
-        final_loss = validation_losses[-1]
-    #WRITE OPTIM 
-    filename = str("ae_optim_v2.txt")
-    file=open(filename,'a')
-    file.write("layer_amount:" + str(layer_amount))
-    file.write("layer_size:" + str(layer_size))
-    file.write("extradense:" + str(extradense))
-    file.write("final_loss:" + str(final_loss))  
-    file.write('\n')
-    file.close()
-    return final_loss
-
 
 def optimal_optimisation():
     torch.cuda.set_device(0)
     study = optuna.create_study(direction="minimize")
-    study.optimize(objective,n_trials=12)
-
-    pruned_trials = [t for t in study.trials if t.state == optuna.trial.TrialState.PRUNED]
-    complete_trials = [t for t in study.trials if t.state == optuna.trial.TrialState.COMPLETE]
-
-    print("Study statistics: ")
-    print("  Number of finished trials: ", len(study.trials))
-    print("  Number of pruned trials: ", len(pruned_trials))
-    print("  Number of complete trials: ", len(complete_trials))
-    
-    print("Best trial:")
-    trial = study.best_trial
-
-    print("  Value: ", trial.value)
-
-    print("  Params: ")
-    for key, value in trial.params.items():
-        print("    {}: {}".format(key, value))
-
-def optimal_optimisation_small():
-    torch.cuda.set_device(0)
-    study = optuna.create_study(direction="minimize")
-    study.optimize(objective_small,n_trials=12)
+    study.optimize(objective,n_trials=2)
 
     pruned_trials = [t for t in study.trials if t.state == optuna.trial.TrialState.PRUNED]
     complete_trials = [t for t in study.trials if t.state == optuna.trial.TrialState.COMPLETE]

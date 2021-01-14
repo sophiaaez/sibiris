@@ -40,90 +40,82 @@ class UnFlatten(nn.Module):
         return input.view(input.size(0),self.filters, isize, isize) #4,128,128 
 
 class facenetVAE(nn.Module):
-    def __init__(self,layer_amount=6,channels=1,isize=512,layer_size=128,extradense=False):
-        super(facenetVAE,self).__init__()
-        poolamount = 16
-        h_dim = int(pow((isize/(poolamount*2)),2)*layer_size)
-        z_dim = int(h_dim/2)
-        self.layer_amount = layer_amount
-        self.layer_size=layer_size
-        self.extradense = extradense
-        #Encoder
-        self.conv1 = nn.Conv2d(1, 64, 7, stride=2, padding=3)  
-        self.conv2 = nn.Conv2d(64, 64, 1,stride=1)
-        self.conv2a = nn.Conv2d(64, 192,3,stride=1,padding=1)
-        self.conv3 = nn.Conv2d(192, 192,1,stride=1)
-        self.conv3a = nn.Conv2d(192,384,3,stride=1,padding=1)
-        self.conv4 = nn.Conv2d(384,384,1,stride=1)
-        self.conv4a = nn.Conv2d(384,256,3,stride=1,padding=1)
-        if(self.layer_amount > 4):
-            self.conv5 = nn.Conv2d(256,256,1,stride=1)
-            self.conv5a = nn.Conv2d(256,256,3,stride=1,padding=1)
-            torch.nn.init.xavier_uniform_(self.conv5.weight,gain=nn.init.calculate_gain('relu'))
-            torch.nn.init.xavier_uniform_(self.conv5a.weight,gain=nn.init.calculate_gain('relu'))
-            if(self.layer_amount > 5):
-                self.conv6 = nn.Conv2d(256,256,1,stride=1)
-                self.conv6a = nn.Conv2d(256,256,3,stride=1,padding=1)
-                torch.nn.init.xavier_uniform_(self.conv6.weight,gain=nn.init.calculate_gain('relu'))
-                torch.nn.init.xavier_uniform_(self.conv6a.weight,gain=nn.init.calculate_gain('relu'))
+    def __init__(self,
+                 in_channels: int=1,
+                 latent_dim: int=2000,
+                 hidden_dims = None,
+                 beta: int = 4,
+                 gamma:float = 1000.,
+                 max_capacity: int = 25,
+                 Capacity_max_iter: int = 1e5,
+                 loss_type:str = 'B',
+                 **kwargs) -> None:
+        super(facenetVAE, self).__init__()
 
-        if(self.layer_size == 128):
-            self.conv41 = nn.Conv2d(256,128,1,stride=1)
-            self.conv41a = nn.Conv2d(128,128,3,stride=1,padding=1)
-            self.t_conv41 = nn.ConvTranspose2d(128,256,1,stride=1)
-            torch.nn.init.xavier_uniform_(self.conv41.weight,gain=nn.init.calculate_gain('relu'))
-            torch.nn.init.xavier_uniform_(self.conv41a.weight,gain=nn.init.calculate_gain('relu'))
-            torch.nn.init.xavier_uniform_(self.t_conv41.weight,gain=nn.init.calculate_gain('relu'))
-        elif(self.layer_size == 64):
-            self.conv42 = nn.Conv2d(256,64,1,stride=1)
-            self.conv42a = nn.Conv2d(64,64,3,stride=1,padding=1)
-            self.t_conv42 = nn.ConvTranspose2d(64,256,1,stride=1)
-            torch.nn.init.xavier_uniform_(self.conv42.weight,gain=nn.init.calculate_gain('relu'))
-            torch.nn.init.xavier_uniform_(self.conv42a.weight,gain=nn.init.calculate_gain('relu'))
-            torch.nn.init.xavier_uniform_(self.t_conv42.weight,gain=nn.init.calculate_gain('relu'))
-        elif(self.layer_size == 32):
-            self.conv43 = nn.Conv2d(256,32,1,stride=1)
-            self.conv43a = nn.Conv2d(32,32,3,stride=1,padding=1)
-            self.t_conv43 = nn.ConvTranspose2d(32,256,1,stride=1)
-            torch.nn.init.xavier_uniform_(self.conv43.weight,gain=nn.init.calculate_gain('relu'))
-            torch.nn.init.xavier_uniform_(self.conv43a.weight,gain=nn.init.calculate_gain('relu'))
-            torch.nn.init.xavier_uniform_(self.t_conv43.weight,gain=nn.init.calculate_gain('relu'))
+        self.latent_dim = latent_dim
+        self.beta = beta
+        self.gamma = gamma
+        self.loss_type = loss_type
+        self.C_max = torch.Tensor([max_capacity])
+        self.C_stop_iter = Capacity_max_iter
 
-        self.pool = nn.MaxPool2d(3, 2,padding=1)
-        self.lrn = nn.LocalResponseNorm(2)
-       
-        #Bottleneck
-        if self.extradense:
-            self.extra = nn.Linear(h_dim,h_dim)
-        self.fl = Flatten()
-        self.fc1 = nn.Linear(h_dim, z_dim)
-        self.fc2 = nn.Linear(h_dim, z_dim)
+        modules = []
+        if hidden_dims is None:
+            hidden_dims = [32, 64, 128, 256, 32]
 
-        self.fc3 = nn.Linear(z_dim, h_dim)
-        self.unfl = UnFlatten(layer_size)
+        # Build Encoder
+        for h_dim in hidden_dims:
+            modules.append(
+                nn.Sequential(
+                    nn.Conv2d(in_channels, out_channels=h_dim,
+                              kernel_size= 3, stride= 2, padding  = 1),
+                    nn.BatchNorm2d(h_dim),
+                    nn.LeakyReLU())
+            )
+            in_channels = h_dim
 
-        #Decoder
-        self.t_conv41 = nn.ConvTranspose2d(128,256,1,stride=1)
-        self.t_conv42 = nn.ConvTranspose2d(64,256,1,stride=1)
-        self.t_conv43 = nn.ConvTranspose2d(32,256,1,stride=1)
+        self.encoder = nn.Sequential(*modules)
+        number = 16*16
+        self.fc_mu = nn.Linear(hidden_dims[-1]*number, latent_dim)
+        self.fc_var = nn.Linear(hidden_dims[-1]*number, latent_dim)
 
-        self.t_conv4 = nn.ConvTranspose2d(256,384,2,stride=2)
-        self.t_conv3 = nn.ConvTranspose2d(384,192,2,stride=2)
-        self.t_conv2 = nn.ConvTranspose2d(192,64,2,stride=2)
-        self.t_conv1 = nn.ConvTranspose2d(64, 1, 4, stride=4)
 
-        torch.nn.init.xavier_uniform_(self.conv1.weight,gain=nn.init.calculate_gain('relu'))
-        torch.nn.init.xavier_uniform_(self.conv2.weight,gain=nn.init.calculate_gain('relu'))
-        torch.nn.init.xavier_uniform_(self.conv2a.weight,gain=nn.init.calculate_gain('relu'))
-        torch.nn.init.xavier_uniform_(self.conv3.weight,gain=nn.init.calculate_gain('relu'))
-        torch.nn.init.xavier_uniform_(self.conv3a.weight,gain=nn.init.calculate_gain('relu'))
-        torch.nn.init.xavier_uniform_(self.conv4.weight,gain=nn.init.calculate_gain('relu'))
-        torch.nn.init.xavier_uniform_(self.conv4a.weight,gain=nn.init.calculate_gain('relu'))
+        # Build Decoder
+        modules = []
 
-        torch.nn.init.xavier_uniform_(self.t_conv4.weight,gain=nn.init.calculate_gain('relu'))
-        torch.nn.init.xavier_uniform_(self.t_conv3.weight,gain=nn.init.calculate_gain('relu'))
-        torch.nn.init.xavier_uniform_(self.t_conv2.weight,gain=nn.init.calculate_gain('relu'))
-        torch.nn.init.xavier_uniform_(self.t_conv1.weight,gain=nn.init.calculate_gain('relu'))
+        self.decoder_input = nn.Linear(latent_dim, hidden_dims[-1] * number)
+
+        hidden_dims.reverse()
+
+        for i in range(len(hidden_dims) - 1):
+            modules.append(
+                nn.Sequential(
+                    nn.ConvTranspose2d(hidden_dims[i],
+                                       hidden_dims[i + 1],
+                                       kernel_size=3,
+                                       stride = 2,
+                                       padding=1,
+                                       output_padding=1),
+                    nn.BatchNorm2d(hidden_dims[i + 1]),
+                    nn.LeakyReLU())
+            )
+
+
+
+        self.decoder = nn.Sequential(*modules)
+
+        self.final_layer = nn.Sequential(
+                            nn.ConvTranspose2d(hidden_dims[-1],
+                                               hidden_dims[-1],
+                                               kernel_size=3,
+                                               stride=2,
+                                               padding=1,
+                                               output_padding=1),
+                            nn.BatchNorm2d(hidden_dims[-1]),
+                            nn.LeakyReLU(),
+                            nn.Conv2d(hidden_dims[-1], out_channels= 1,
+                                      kernel_size= 3, padding= 1),
+                            nn.Tanh())
 
         
     def reparameterize(self, mu, logvar):  # producing latent layer (Guassian distribution )
@@ -131,73 +123,33 @@ class facenetVAE(nn.Module):
         esp = torch.randn_like(std)#torch.randn(*mu.size()).cuda()   # normal unit distribution in shape of mu
         z = mu + std * esp     # mu:mean  std: standard deviation
         return z
-    
-    def bottleneck(self, h):      # hidden layer ---> mean layer + logvar layer
-        mu = self.fc1(h)
-        logvar = self.fc2(h)
-        z = self.reparameterize(mu, logvar)
-        return z, mu, logvar
 
-    def encode(self,x):
-        x = nn.ReLU()(self.conv1(x))
-        x = self.pool(x)
-        x = self.lrn(x)
-        #print(x.size())
-        x = nn.ReLU()(self.conv2(x))
-        x = nn.ReLU()(self.conv2a(x))
-        x = self.lrn(x)
-        x = self.pool(x)
-        #print(x.size())
-        x = nn.ReLU()(self.conv3(x))
-        x = nn.ReLU()(self.conv3a(x))
-        x = self.pool(x)
-        x = nn.ReLU()(self.conv4(x))
-        x = nn.ReLU()(self.conv4a(x))
-        if(self.layer_amount > 4):
-            x = nn.ReLU()(self.conv5(x))
-            x = nn.ReLU()(self.conv5a(x))
-            if(self.layer_amount > 5):
-                    x = nn.ReLU()(self.conv6(x))
-                    x = nn.ReLU()(self.conv6a(x))
-        if(self.layer_size == 128):
-            x = nn.ReLU()(self.conv41(x))
-            x = nn.ReLU()(self.conv41a(x))
-        elif(self.layer_size == 64):
-            x = nn.ReLU()(self.conv42(x))
-            x = nn.ReLU()(self.conv42a(x))
-        elif(self.layer_size == 32):
-            x = nn.ReLU()(self.conv43(x))
-            x = nn.ReLU()(self.conv43a(x))
-        x = self.pool(x)
-        #print(x.size())
-        h=self.fl(x)
-        if self.extradense:
-            h = self.extra(h)
-        z,mu,logvar=self.bottleneck(h)
-        return z,mu,logvar
+    def encode(self,input):
+        result = self.encoder(input)
+        #print(result.size())
+        result = torch.flatten(result, start_dim=1)
 
-    def forward(self, x):
-        z,mu,logvar = self.encode(x)        
-        hz=self.fc3(z)
-        x=self.unfl(hz)
-        if(self.layer_size == 128):
-            x = nn.ReLU()(self.t_conv41(x))
-        elif(self.layer_size == 64):
-            x = nn.ReLU()(self.t_conv42(x))
-        elif(self.layer_size == 32):
-            x = nn.ReLU()(self.t_conv43(x))
-        #print(x.size()) #[layer_size,16,16]
-        x = nn.ReLU()(self.t_conv4(x))
-        #print(x.size()) #[384,32,32]
-        x = nn.ReLU()(self.t_conv3(x))
-        #print(x.size()) #[192,64,64]
-        x = nn.ReLU()(self.t_conv2(x))
-        #print(x.size()) #[64,128,128]
-        x = nn.ReLU()(self.t_conv1(x))
-        #print(x.size()) #[1,512,512]
-        x = nn.Sigmoid()(x)
-        #print(x.size())
-        return x,mu,logvar
+        # Split the result into mu and var components
+        # of the latent Gaussian distribution
+        #print(result.size())
+        mu = self.fc_mu(result)
+        log_var = self.fc_var(result)
+
+        return [mu, log_var]
+
+    def decode(self, z):
+        result = self.decoder_input(z)
+        result = result.view(-1, 32,16,16)
+        result = self.decoder(result)
+        result = self.final_layer(result)
+        return result
+
+    def forward(self, input):
+        mu, log_var = self.encode(input)
+        z = self.reparameterize(mu, log_var)
+        z = self.decode(z)
+        #print(z.size())
+        return  [z, mu, log_var]
 
     
 
@@ -217,13 +169,13 @@ def loss_fn(recon_x, x,mu,logvar,beta):   # defining loss function for va-AE (lo
         return 0,0,0"""
     loss = nn.MSELoss()
     l = loss(recon_x,x)
-    kld = -0.5 * torch.mean(1 + logvar - mu.pow(2) - logvar.exp())
+    kld = torch.mean(-0.5 * torch.sum(1 + logvar - mu ** 2 - logvar.exp(), dim = 1), dim = 0)
     return l+(beta*kld),l,kld
 
 def trainNet(epochs,learning_rate,batch_size,data_path,layers,layer_size,beta=1,save=True):
     train_loader,val_loader = getDatasets(data_path,batch_size,reduction=0.25)
-    model = facenetVAE(layer_amount=layers,layer_size=layer_size).cuda()
-    es = EarlyStopper(100,0.1,str("VAE_earlystopsave_4_simple_v2_overfit.pth"),save)
+    model = facenetVAE().cuda()
+    es = EarlyStopper(10,0.1,str("VAE_earlystopsave_4_simple_v2_zdim.pth"),save)
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     #TRAINING
     training_losses = []

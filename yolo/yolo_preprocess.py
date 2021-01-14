@@ -4,9 +4,9 @@ import glob
 import csv
 from eval import getAP, getIoU, getPrecisionRecall, getIntersection, relativeToAbsolute, readResults
 
-cfgpath = "yolo/yolo-obj.cfg"
-weightpath = "yolo/yolo-obj_1500.weights"
-objpath = "yolo/obj.data"
+cfgpath = "yolo-obj.cfg"
+weightpath = "yolo-obj_1500.weights"
+objpath = "obj.data"
 
 """
 Checks if the two classes a and b match
@@ -42,11 +42,13 @@ def cropAll(imagelist,filepath): #filepath of the output files without a .csv en
   net = Detector(bytes(cfgpath, encoding="utf-8"), bytes(weightpath, encoding="utf-8"), 0, bytes(objpath,encoding="utf-8"))
   fins = []
   flukes = []
+  counter = 0
   for i in imagelist:
     counter += 1
     img = cv2.imread(i)
     img_darknet = Image(img)
     results = net.detect(img_darknet)
+    i_name = i.split('/')[-1]
     for cat, score, bounds in results:
       if 'fluke' in str(cat):
         x,y,w,h= bounds
@@ -54,30 +56,30 @@ def cropAll(imagelist,filepath): #filepath of the output files without a .csv en
         y2 = min(int(y+h/2),img.shape[0])
         x1 = max(int(x-w/2),0)
         x2 = min(int(x+w/2),img.shape[1])
-        flukes.append([i,[x1,y1,x2,y2]])
+        flukes.append([i_name,[x1,y1,x2,y2]])
       elif 'fin' in str(cat):
         x,y,w,h= bounds
         y1 = max(int(y-h/2),0)
         y2 = min(int(y+h/2),img.shape[0])
         x1 = max(int(x-w/2),0)
         x2 = min(int(x+w/2),img.shape[1])
-        fins.append([i,[x1,y1,x2,y2]])
-    with open(filepath + "fins.csv", "a") as myfile:
+        fins.append([i_name,[x1,y1,x2,y2]])
+  with open(filepath + "fins.csv", "a") as myfile:
         wr = csv.writer(myfile)
         for r in fins:
           wr.writerow(r)
-    with open(filepath + "flukes.csv","a") as myfile:
+  with open(filepath + "flukes.csv","a") as myfile:
         wr = csv.writer(myfile)
         for r in flukes:
           wr.writerow(r)
-
+  print("DONE")
 
 def cropAllInFolder(folder,filepath):
   imagelist = glob.glob(str(folder + "*.jpg"))
   imagelist.extend(glob.glob(str(folder + "*.JPG")))
   imagelist.extend(glob.glob(str(folder + "*.jpeg")))
   imagelist.extend(glob.glob(str(folder + "*.JPEG")))
-  cropAll(imagelist,filepath,cfgpath,weightpath,objpath)
+  cropAll(imagelist,filepath)
 
 """
 Evaluates a set and writes the output into a file with the filename at the given filepath.
@@ -86,6 +88,7 @@ def evaluateSet(setpath,filepath,filename):
   imagelist = readSet(setpath)
   net = Detector(bytes(cfgpath, encoding="utf-8"), bytes(weightpath, encoding="utf-8"), 0, bytes(objpath,encoding="utf-8"))
   rows = []
+  counter = 0
   for i in imagelist:
     counter += 1
     img = cv2.imread(i)
@@ -245,3 +248,6 @@ def valEval():
   plt.plot(list(range(600,4000,100)),ap75s, 'y', label="AP75")
   plt.legend()
   plt.savefig('yolo_eval_results.png')
+
+
+cropAllInFolder(folder="../data/kaggle/",filepath="../data/")

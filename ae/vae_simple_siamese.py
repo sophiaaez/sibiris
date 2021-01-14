@@ -40,14 +40,15 @@ class UnFlatten(nn.Module):
         return input.view(input.size(0),self.filters, isize, isize) #4,128,128 
 
 class facenetVAE(nn.Module):
-    def __init__(self,layer_amount=6,channels=1,isize=512,layer_size=128,extradense=False):
-        super(facenetVAE,self).__init__()
+    def __init__(self,layer_amount=5,channels=1,isize=512,layer_size=64,extradense=False,size1=1024,size2=64):
+        super(facenetAE,self).__init__()
         poolamount = 16
         h_dim = int(pow((isize/(poolamount*2)),2)*layer_size)
-        z_dim = int(h_dim/2)
+        z_dim = 64
         self.layer_amount = layer_amount
         self.layer_size=layer_size
         self.extradense = extradense
+
         #Encoder
         self.conv1 = nn.Conv2d(1, 64, 7, stride=2, padding=3)  
         self.conv2 = nn.Conv2d(64, 64, 1,stride=1)
@@ -102,10 +103,14 @@ class facenetVAE(nn.Module):
         self.fc3 = nn.Linear(z_dim, h_dim)
         self.unfl = UnFlatten(layer_size)
 
-        #Decoder
-        self.t_conv41 = nn.ConvTranspose2d(128,256,1,stride=1)
-        self.t_conv42 = nn.ConvTranspose2d(64,256,1,stride=1)
-        self.t_conv43 = nn.ConvTranspose2d(32,256,1,stride=1)
+        #SIAMESE
+        self.b1d32 = nn.BatchNorm1d(size2)
+        self.bn1d = nn.BatchNorm1d(size1)
+        self.c1 = nn.Linear(h_dim,size1)
+        self.c2 = nn.Linear(size1,size2)
+        self.c3 = nn.Linear(size2,1)
+
+        #Decoder        
 
         self.t_conv4 = nn.ConvTranspose2d(256,384,2,stride=2)
         self.t_conv3 = nn.ConvTranspose2d(384,192,2,stride=2)
@@ -125,10 +130,9 @@ class facenetVAE(nn.Module):
         torch.nn.init.xavier_uniform_(self.t_conv2.weight,gain=nn.init.calculate_gain('relu'))
         torch.nn.init.xavier_uniform_(self.t_conv1.weight,gain=nn.init.calculate_gain('relu'))
 
-        
     def reparameterize(self, mu, logvar):  # producing latent layer (Guassian distribution )
-        std = torch.exp(0.5 * logvar) #logvar.mul(0.5).exp_()       # hint: var=std^2
-        esp = torch.randn_like(std)#torch.randn(*mu.size()).cuda()   # normal unit distribution in shape of mu
+        std = logvar.mul(0.5).exp_()       # hint: var=std^2
+        esp = torch.randn(*mu.size()).cuda()   # normal unit distribution in shape of mu
         z = mu + std * esp     # mu:mean  std: standard deviation
         return z
     
@@ -173,11 +177,25 @@ class facenetVAE(nn.Module):
         h=self.fl(x)
         if self.extradense:
             h = self.extra(h)
-        z,mu,logvar=self.bottleneck(h)
-        return z,mu,logvar
+        return(h)
+
+    def siamese(self,input1,input2):
+        x = torch.sub(input1,input2)
+        x = torch.square(x)
+        #print(x.size())
+        x = nn.ReLU()(self.c1(x))
+        #print(x.size())
+        x = self.bn1d(x)
+        x = nn.Dropout2d(0.25)(x)
+        x = nn.ReLU()(self.c2(x))
+        #print(x.size())
+        x = self.b1d32(x)
+        x = nn.Sigmoid()(self.c3(x))
+        return(x)
 
     def forward(self, x):
-        z,mu,logvar = self.encode(x)        
+        h = self.encode(x)
+        z,mu,logvar=self.bottleneck(h)
         hz=self.fc3(z)
         x=self.unfl(hz)
         if(self.layer_size == 128):
@@ -197,130 +215,33 @@ class facenetVAE(nn.Module):
         #print(x.size()) #[1,512,512]
         x = nn.Sigmoid()(x)
         #print(x.size())
-        return x,mu,logvar
+        return x
 
-    
+    def forward_siamese(self,x1,x2):
+        h1 = self.encode(x1)
+        h2 = self.encode(x2)
+        x = self.siamese(h1,h2)
+        return x
 
 def loss_fn(recon_x, x,mu,logvar,beta):   # defining loss function for va-AE (loss= reconstruction loss + KLD (to analyse if we have normal distributon))
-    """a = round(torch.min(recon_x).item(),5)
-    b = round(torch.max(recon_x).item(),5)
-    c = round(torch.min(x).item(),5)
-    d = round(torch.max(x).item(),5)
-    #if (a < 0.) or (b > 1.) or (c < 0.) or (d > 1.) or math.isnan(a) or math.isnan(b) or math.isnan(c) or math.isnan(d):
-        
-    if (a >= 0.) and (b <= 1.) and (c >= 0.) and (d <= 1.) and not (math.isnan(a) or math.isnan(b) or math.isnan(c) or math.isnan(d)):
-        BCE = F.binary_cross_entropy(recon_x, x)
-        return BCE
-    else:
-        print("STOPSTOPSTOPSTOPSTOP")
-        print("a" + str(a) + "b" + str(b) + "c" + str(c) + "d" + str(d))
-        return 0,0,0"""
     loss = nn.MSELoss()
     l = loss(recon_x,x)
     kld = -0.5 * torch.mean(1 + logvar - mu.pow(2) - logvar.exp())
     return l+(beta*kld),l,kld
 
-def trainNet(epochs,learning_rate,batch_size,data_path,layers,layer_size,beta=1,save=True):
-    train_loader,val_loader = getDatasets(data_path,batch_size,reduction=0.25)
-    model = facenetVAE(layer_amount=layers,layer_size=layer_size).cuda()
-    es = EarlyStopper(100,0.1,str("VAE_earlystopsave_4_simple_v2_overfit.pth"),save)
+def loss_siam(output,target):
+    loss = nn.BCELoss()
+    l = loss(output,target)
+    return l
+
+def trainNet(epochs,learning_rate,batch_size,data_path,layers,layer_size,save=True):
+    train_loader,val_loader,train_set,val_set = getDatasets(data_path,batch_size,raw=True)
+    model = facenetAE(layer_amount=layers,layer_size=layer_size).cuda()
+    es = EarlyStopper(10,0.1,str("AE_earlystopsave_simple_siamese.pth"),save)
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     #TRAINING
     training_losses = []
-    validation_losses = []
-    for epoch in range(epochs):
-        total_train_loss = 0
-        model.train()
-        for inputs in train_loader:
-            optimizer.zero_grad()
-            inputs = inputs.float().cuda()
-            outputs, mu, logvar = model(inputs)
-            lost, mselost, kldlost = loss_fn(outputs, inputs,mu,logvar,beta)
-            lost.backward() 
-            optimizer.step()
-            total_train_loss += lost
-        #print("train loss " + str(total_train_loss.detach().cpu().item()))
-        training_losses.append(total_train_loss.detach().cpu().item()) 
-        stop_epoch = epoch
-        #VALIDATION 
-        if epoch % 10 == 0: 
-            model.eval()
-            with torch.no_grad():
-                total_val_loss = 0
-                for vinputs in val_loader:
-                    vinputs = vinputs.float().cuda()
-                    voutputs, vmu, vlogvar = model(vinputs)
-                    vlost, vmselost, vkldlost = loss_fn(voutputs, vinputs,vmu,vlogvar,beta)
-                    total_val_loss += vlost
-            validation_losses.append(total_val_loss.detach().cpu().item())
-            print("Epoch " + str(epoch) + " with val loss " + str(validation_losses[-1]))
-            stop = es.earlyStopping(total_val_loss,model)
-            #EARLY STOPPING
-            if stop:
-                print("TRAINING FINISHED AFTER " + str(epoch) + " EPOCHS. K BYE.")
-                break
-    #SAVE LOSSES TO FILE
-    if save:
-        filename = str("VAE_losses_" + str(layers)+ "_" + str(layer_size) +"_simple_2_zdim.txt")
-        file=open(filename,'w')
-        file.write("trained with learning rate " + str(learning_rate) + ", batch size " + str(batch_size) + ", planned epochs " + str(epochs) + " but only took " + str(stop_epoch) + " epochs.")
-        file.write("training_losses")
-        file.write('\n')
-        for element in training_losses:
-            file.write(str(element))
-            file.write('\n')
-        file.write("validation_losses")
-        file.write('\n')
-        for element in validation_losses:
-            file.write(str(element))
-            file.write('\n')   
-        file.close()
-
-def evalSet(filepath,beta,network_path=None):
-    #get data
-    loader, v_loader = getDatasets(filepath,8,validation_split=0,reduction=1,raw=False,augment=False)
-    #get model
-    if network_path:
-        model = torch.load(network_path)
-    else:
-        model = facenetVAE()
-    #calculate loss
-    total_loss = 0
-    total_mse = 0
-    total_kld = 0
-    model.eval()
-    for inputs in loader:
-        inputs = inputs.float().cuda()
-        outputs,mu,logvar = model(inputs)
-        lost,mselost,kldlost  = loss_fn(outputs,inputs,mu,logvar,beta)
-        total_loss += lost.detach().cpu().item()
-        total_mse += mselost.detach().cpu().item()
-        total_kld += kldlost.detach().cpu().item()
-    print("Total loss for testset is: " + str(total_loss) + " MSE loss: " + str(total_mse) + " KLD loss: " + str(total_kld))
-
-def objective(trial):
-    epochs = 1000
-    data_path="../data/trainingset_final_v2.csv"
-    #learning_rate =trial.suggest_loguniform("learning_rate", 1e-5, 1e-3)
-    #batch_size = trial.suggest_int("batch_size",8,32,8)
-    learning_rate = 0.0001
-    batch_size = 8
-    layer_amount = 4 #trial.suggest_int("layer_amount",4,6,1)
-    layer_size = trial.suggest_categorical("layer_size",[32,128])#,256])
-    extradense = False #trial.suggest_categorical("extradense",[True,False])
-    #beta = trial.suggest_int("beta",1,20,1)
-    beta = 1
-    #print("BATCH SIZE: " + str(batch_size))
-    #print("Layer amount: " + str(layer_amount))
-    #print("Layer size: " + str(layer_size))
-    #print("extradense: " + str(extradense))
-    print("beta: " + str(beta))
-    train_loader,val_loader = getDatasets(data_path,batch_size)
-    model = facenetVAE(layer_amount=layer_amount,layer_size=layer_size,extradense=extradense).cuda()
-    es = EarlyStopper(10,0.1,str("AE_earlystopsave_4_simple_v2.pth"),False)
-    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-    #TRAINING
-    training_losses = []
+    siamese_losses = []
     validation_losses = []
     val_mse = []
     for epoch in range(epochs):
@@ -334,8 +255,21 @@ def objective(trial):
             lost.backward() 
             optimizer.step()
             total_train_loss += lost
-        #print("train loss " + str(total_train_loss.detach().cpu().item()))
+        print("train loss " + str(total_train_loss.detach().cpu().item()))
         training_losses.append(total_train_loss.detach().cpu().item()) 
+        #SIAMESE TRAINING HERE
+        if epoch % 2 == 0:
+            siamese_loss = 0
+            for b in range(int(math.ceil(train_set.getDatasetSize()/batch_size))):
+                optimizer.zero_grad()
+                b1,b2,l = train_set.getDoubleBatch(batch_size,b)
+                o = model.forward_siamese(b1,b2)
+                loss = loss_siam(o,l)
+                loss.backward()
+                optimizer.step()
+                siamese_loss += loss
+            siamese_losses.append(siamese_loss.detach().cpu().item())
+            print("siamese loss "  + str(siamese_loss.detach().cpu().item()))
         stop_epoch = epoch
         #VALIDATION 
         if epoch % 10 == 0: 
@@ -343,12 +277,19 @@ def objective(trial):
             with torch.no_grad():
                 total_val_loss = 0
                 total_mse_loss = 0
+                #first regular val loss
                 for vinputs in val_loader:
                     vinputs = vinputs.float().cuda()
                     voutputs, vmu, vlogvar = model(vinputs)
                     vlost, vmselost, vkldlost = loss_fn(voutputs, vinputs,vmu,vlogvar,beta)
                     total_val_loss += vlost
                     total_mse_loss += vmselost
+                #then also siamese val loss
+                for b in range(int(math.ceil(train_set.getDatasetSize()/batch_size))):
+                    b1,b2,l = train_set.getDoubleBatch(batch_size,b)
+                    o = model.forward_siamese(b1,b2)
+                    vloss = loss_siam(o,l)
+                    total_val_loss += vloss
             validation_losses.append(total_val_loss.detach().cpu().item())
             val_mse.append(total_mse_loss.detach().cpu().item())
             print("Epoch " + str(epoch) + " with val loss " + str(validation_losses[-1]))
@@ -357,23 +298,125 @@ def objective(trial):
             if stop:
                 print("TRAINING FINISHED AFTER " + str(epoch) + " EPOCHS. K BYE.")
                 break
+    #SAVE LOSSES TO FILE
+    if save == False or save == True:
+        filename = str("AE_losses_siamese_simple.txt")
+        file=open(filename,'w')
+        file.write("trained with learning rate " + str(learning_rate) + ", batch size " + str(batch_size) + ", planned epochs " + str(epochs) + " but only took " + str(stop_epoch) + " epochs.")
+        file.write("training_losses")
+        file.write('\n')
+        for element in training_losses:
+            file.write(str(element))
+            file.write('\n')
+        file.write("siamese_losses")
+        file.write('\n')
+        for element in siamese_losses:
+            file.write(str(element))
+            file.write('\n')
+        file.write("validation_losses")
+        file.write('\n')
+        for element in validation_losses:
+            file.write(str(element))
+            file.write('\n')   
+            file.write("validation_mse_losses")
+        file.write('\n')
+        for element in val_mse:
+            file.write(str(element))
+            file.write('\n') 
+        file.close()
+
+def evalSet(filepath,network_path=None):
+    #get data
+    imagelist = []
+    with open(filepath, newline='') as csvfile:
+        reader = csv.reader(csvfile, delimiter=',')
+        for row in reader:
+            name = str(row[0])
+            box = (str(row[1])[1:-1]).split(",")
+            bbox = [int(b) for b in box]
+            imagelist.append([name,bbox])
+    dataset = WhaleDataset(imagelist,512)
+    loader = torch.utils.data.DataLoader(dataset, batch_size=2,num_workers=2)
+    #get model
+    if network_path:
+        model = torch.load(network_path)
+    else:
+        model = facenetVAE()
+    #calculate loss
+    total_loss = 0
+    model.eval()
+    for inputs in loader:
+        inputs = inputs.float().cuda()
+        outputs = model(inputs)
+        lost  = loss_fn(outputs,inputs)
+        total_loss += lost.detach().cpu().item()
+    print("Total loss for testset is: " + str(total_loss))
+
+def objective(trial):
+    epochs = 1000
+    data_path="../data/trainingset_final_v2.csv"
+    #learning_rate =trial.suggest_loguniform("learning_rate", 1e-5, 1e-3)
+    #batch_size = trial.suggest_int("batch_size",8,32,8)
+    learning_rate = 0.0001
+    batch_size = 8
+    layer_amount = trial.suggest_int("layer_amount",4,5,1)
+    layer_size = 128#trial.suggest_categorical("layer_size",[64,128])#,256])
+    extradense = False #trial.suggest_categorical("extradense",[True,False])
+    #print("BATCH SIZE: " + str(batch_size))
+    print("Layer amount: " + str(layer_amount))
+    print("Layer size: " + str(layer_size))
+    print("Extra dense: " + str(extradense))
+    train_loader,val_loader = getDatasets(data_path,batch_size)
+    model = facenetVAE(layer_amount=layer_amount,layer_size=layer_size,extradense=extradense).cuda()
+    es = EarlyStopper(10,0.1,str("AE_earlystopsave_4_simple_v2.pth"),False)
+    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+    #TRAINING
+    training_losses = []
+    validation_losses = []
+    for epoch in range(epochs):
+        total_train_loss = 0
+        model.train()
+        for inputs in train_loader:
+            optimizer.zero_grad()
+            inputs = inputs.float().cuda()
+            outputs = model(inputs)
+            lost = loss_fn(outputs, inputs)
+            lost.backward() 
+            optimizer.step()
+            total_train_loss += lost
+        #print("train loss " + str(total_train_loss.detach().cpu().item()))
+        training_losses.append(total_train_loss.detach().cpu().item()) 
+        stop_epoch = epoch
+        #VALIDATION 
+        if epoch % 10 == 0: 
+            model.eval()
+            with torch.no_grad():
+                total_val_loss = 0
+                for vinputs in val_loader:
+                    vinputs = vinputs.float().cuda()
+                    val_outputs = model(vinputs)
+                    vlost  = loss_fn(val_outputs,vinputs)
+                    total_val_loss += vlost
+            validation_losses.append(total_val_loss.detach().cpu().item())
+            print("Epoch " + str(epoch) + " with val loss " + str(validation_losses[-1]))
+            stop = es.earlyStopping(total_val_loss,model)
+            #EARLY STOPPING
+            if stop:
+                print("TRAINING FINISHED AFTER " + str(epoch) + " EPOCHS. K BYE.")
+                break
             trial.report(total_val_loss,epoch)
-    if (int(stop_epoch/10)-10) > 0 and (int(stop_epoch/10)-10) < len(validation_losses):
+    if (int(stop_epoch/10)-10) < len(validation_losses):
         final_loss = validation_losses[int(stop_epoch/10)-10] #10 coz of patience = 10
-        final_mse_loss = val_mse[int(stop_epoch/10)-10]
     else:
         final_loss = validation_losses[-1]
-        final_mse_loss = val_mse[-1]
     #WRITE OPTIM 
-    filename = str("vae_optim_v2.txt")
+    filename = str("ae_optim_v2.txt")
     file=open(filename,'a')
     file.write("layer_amount:" + str(layer_amount))
     file.write("layer_size:" + str(layer_size))
     file.write("extradense:" + str(extradense))
-    file.write("beta:" + str(beta))
     file.write("final_loss:" + str(final_loss)) 
-    file.write("final_mse_loss:" + str(final_mse_loss)) 
-    file.write('\n')
+    file.write('\n') 
     file.close()
     return final_loss
 
@@ -384,31 +427,28 @@ def objective_small(trial):
     #batch_size = trial.suggest_int("batch_size",8,32,8)
     learning_rate = 0.0001
     batch_size = 8
-    layer_amount = 4#trial.suggest_int("layer_amount",4,6,1)
-    layer_size = 128#trial.suggest_categorical("layer_size",[64,128])#,256])
-    beta = trial.suggest_int("beta",1,20,1)
-    extradense = False # trial.suggest_categorical("extradense",[True,False])
+    layer_amount = trial.suggest_int("layer_amount",4,6,1)
+    layer_size = 32#trial.suggest_categorical("layer_size",[32,64])#,256])
+    extradense = trial.suggest_categorical("extradense",[True,False])
     #print("BATCH SIZE: " + str(batch_size))
-    #print("Layer amount: " + str(layer_amount))
-    #print("Layer size: " + str(layer_size))
-    #print("extradense: " + str(extradense))
-    print("beta: " + str(beta))
-    train_loader,val_loader = getDatasets(data_path,batch_size,reduction=0.25)
+    print("Layer amount: " + str(layer_amount))
+    print("Layer size: " + str(layer_size))
+    print("Extra dense: " + str(extradense))
+    train_loader,val_loader = getDatasets(data_path,batch_size)
     model = facenetVAE(layer_amount=layer_amount,layer_size=layer_size,extradense=extradense).cuda()
     es = EarlyStopper(10,0.1,str("AE_earlystopsave_4_simple_v2.pth"),False)
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     #TRAINING
     training_losses = []
     validation_losses = []
-    val_mse = []
     for epoch in range(epochs):
         total_train_loss = 0
         model.train()
         for inputs in train_loader:
             optimizer.zero_grad()
             inputs = inputs.float().cuda()
-            outputs, mu, logvar = model(inputs)
-            lost, mselost, kldlost = loss_fn(outputs, inputs,mu,logvar,beta)
+            outputs = model(inputs)
+            lost = loss_fn(outputs, inputs)
             lost.backward() 
             optimizer.step()
             total_train_loss += lost
@@ -420,15 +460,12 @@ def objective_small(trial):
             model.eval()
             with torch.no_grad():
                 total_val_loss = 0
-                total_mse_loss = 0
                 for vinputs in val_loader:
                     vinputs = vinputs.float().cuda()
-                    voutputs, vmu, vlogvar = model(vinputs)
-                    vlost, vmselost, vkldlost = loss_fn(voutputs, vinputs,vmu,vlogvar,beta)
+                    val_outputs = model(vinputs)
+                    vlost  = loss_fn(val_outputs,vinputs)
                     total_val_loss += vlost
-                    total_mse_loss += vmselost
             validation_losses.append(total_val_loss.detach().cpu().item())
-            val_mse.append(total_mse_loss.detach().cpu().item())
             print("Epoch " + str(epoch) + " with val loss " + str(validation_losses[-1]))
             stop = es.earlyStopping(total_val_loss,model)
             #EARLY STOPPING
@@ -436,18 +473,17 @@ def objective_small(trial):
                 print("TRAINING FINISHED AFTER " + str(epoch) + " EPOCHS. K BYE.")
                 break
             trial.report(total_val_loss,epoch)
-    if (int(stop_epoch/10)-10) > 0 and (int(stop_epoch/10)-10) < len(validation_losses):
+    if (int(stop_epoch/10)-10) < len(validation_losses):
         final_loss = validation_losses[int(stop_epoch/10)-10] #10 coz of patience = 10
-        final_mse_loss = val_mse[int(stop_epoch/10)-10]
     else:
         final_loss = validation_losses[-1]
-        final_mse_loss = val_mse[-1]
     #WRITE OPTIM 
-    filename = str("vae_optim_v2_beta.txt")
+    filename = str("ae_optim_v2.txt")
     file=open(filename,'a')
-    file.write("beta:" + str(beta))
-    file.write("final_loss:" + str(final_loss)) 
-    file.write("final_mse_loss:" + str(final_mse_loss)) 
+    file.write("layer_amount:" + str(layer_amount))
+    file.write("layer_size:" + str(layer_size))
+    file.write("extradense:" + str(extradense))
+    file.write("final_loss:" + str(final_loss))  
     file.write('\n')
     file.close()
     return final_loss
@@ -456,7 +492,7 @@ def objective_small(trial):
 def optimal_optimisation():
     torch.cuda.set_device(0)
     study = optuna.create_study(direction="minimize")
-    study.optimize(objective,n_trials=4)
+    study.optimize(objective,n_trials=5)
 
     pruned_trials = [t for t in study.trials if t.state == optuna.trial.TrialState.PRUNED]
     complete_trials = [t for t in study.trials if t.state == optuna.trial.TrialState.COMPLETE]
@@ -475,11 +511,10 @@ def optimal_optimisation():
     for key, value in trial.params.items():
         print("    {}: {}".format(key, value))
 
-
 def optimal_optimisation_small():
     torch.cuda.set_device(0)
     study = optuna.create_study(direction="minimize")
-    study.optimize(objective_small,n_trials=20)
+    study.optimize(objective_small,n_trials=12)
 
     pruned_trials = [t for t in study.trials if t.state == optuna.trial.TrialState.PRUNED]
     complete_trials = [t for t in study.trials if t.state == optuna.trial.TrialState.COMPLETE]
@@ -500,5 +535,5 @@ def optimal_optimisation_small():
 
 if __name__ == "__main__":
     torch.cuda.empty_cache()
-    trainNet(epochs=20,learning_rate=0.0001,batch_size=8,data_path="../data/trainingset_final_v2.csv",layers=4,layer_size=32,save=False)
+    #trainNet(epochs=10,learning_rate=0.0001,batch_size=8,data_path="../data/trainingset_final_v2.csv",layers=5,layer_size=32,save=False)
     
