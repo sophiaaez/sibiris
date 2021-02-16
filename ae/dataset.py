@@ -1,10 +1,12 @@
 import torch
+from torch import nn
 from torch.utils.data import Dataset, DataLoader
 from skimage import io, util, transform, color,exposure,filters
 import csv
 import numpy as np
 import random
 from torchvision import transforms
+import warnings
 
 class WhaleDataset(Dataset):
     def __init__(self,imagelist,img_size,path="../data/kaggle/",transformation_share=0.5,augment=True,findDoubles=False):
@@ -16,16 +18,17 @@ class WhaleDataset(Dataset):
             self.labelledDoublesImagelist = self.findLabelledDoubles()
         self.augment = augment
         #self.print = 0
-        """self.transform = nn.Sequential(
-                transforms.RandomHorizontalFlip(),
+        self.transform = nn.Sequential(
+                #transforms.RandomHorizontalFlip(),
                 #transforms.RandomRotation(45), #doesnt work
                 #transforms.ColorJitter(),
-                transforms.RandomAffine(20,fillcolor=125),
-                transforms.GaussianBlur(kernel_size=5),
+                transforms.RandomAffine(20),
+                #transforms.GaussianBlur(kernel_size=5),
                 #transforms.Grayscale()
         )
-        self.scripted_transforms = torch.jit.script(self.transform)"""
+        self.scripted_transforms = torch.jit.script(self.transform)
         self.ts = transformation_share
+        warnings.simplefilter(action='ignore', category=UserWarning) #coz random affine keeps throwing them!
 
     def __len__(self):
         return(len(self.imagelist))
@@ -70,7 +73,12 @@ class WhaleDataset(Dataset):
             if tran_1 ==  1: #flip horizontally
                 image = image[:, ::-1]
                 image = image.copy()
-        image = transforms.ToTensor()(image)  
+            image = transforms.ToTensor()(image)
+            tran_1 = np.random.randint(0,2)
+            if tran_1 ==  1: #affine transform
+                image = self.scripted_transforms(image)
+        else:    
+            image = transforms.ToTensor()(image)  
         return image
 
     def getImageAndAll(self,idx):
@@ -168,7 +176,7 @@ class WhaleDataset(Dataset):
 
 
 
-def getDatasets(filepath,batch_size,validation_split=1/3,reduction=1,raw=False,augment=True,findDoubles=False):
+def getDatasets(filepath,batch_size,validation_split=1/3,reduction=1,raw=False,augment=True,findDoubles=False,include_unlabelled=True):
     size = 512
     set_raw = []
     with open(filepath, newline='') as csvfile:
@@ -181,7 +189,11 @@ def getDatasets(filepath,batch_size,validation_split=1/3,reduction=1,raw=False,a
                     label = ""
                 elif len(row) == 3:
                     label = str(row[2])
-                set_raw.append([name,bbox,label])
+                if include_unlabelled:
+                    set_raw.append([name,bbox,label])
+                else:
+                    if not(label == "" or label == "new_whale"):
+                        set_raw.append([name,bbox,label])
     random.shuffle(set_raw)
     set_raw_len  = int(len(set_raw)*reduction)
     validation_amount = int(set_raw_len*validation_split)

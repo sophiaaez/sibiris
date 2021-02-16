@@ -172,7 +172,7 @@ class facenetAE(nn.Module):
         #print(x.size()) #[192,64,64]
         x = nn.ReLU()(self.t_conv2(x))
         #print(x.size()) #[64,128,128]
-        x = nn.ReLU()(self.t_conv1(x))
+        x = self.t_conv1(x)
         #print(x.size()) #[1,512,512]
         x = nn.Sigmoid()(x)
         #print(x.size())
@@ -194,14 +194,15 @@ def loss_fn(recon_x, x):   # defining loss function for va-AE (loss= reconstruct
         return 0,0,0"""
     loss = nn.MSELoss()
     l = loss(recon_x,x)
+    #loss = F.mse_loss(recon_x, x, reduction='sum')
     return l
 
 def trainNet(epochs,learning_rate,batch_size,data_path,layers,layer_size,save=True):
     now = datetime.datetime.now()
-    print(str(now))
-    train_loader,val_loader = getDatasets(data_path,batch_size)
+    #print(str(now))
+    train_loader,val_loader = getDatasets(data_path,batch_size,reduction=1)
     model = facenetAE(layer_amount=layers,layer_size=layer_size).cuda()
-    es = EarlyStopper(10,0.1,str("AE_earlystopsave_4_simple_v2_2.pth"),save)
+    es = EarlyStopper(10,0.1,str("AE_earlystopsave_4_simple_v2_3.pth"),save)
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     #TRAINING
     training_losses = []
@@ -219,7 +220,7 @@ def trainNet(epochs,learning_rate,batch_size,data_path,layers,layer_size,save=Tr
             total_train_loss += lost
         print("train loss " + str(total_train_loss.detach().cpu().item()))
         now = datetime.datetime.now()
-        print(str(now))
+        #print(str(now))
         training_losses.append(total_train_loss.detach().cpu().item()) 
         stop_epoch = epoch
         #VALIDATION 
@@ -241,7 +242,7 @@ def trainNet(epochs,learning_rate,batch_size,data_path,layers,layer_size,save=Tr
                 break
     #SAVE LOSSES TO FILE
     if save:
-        filename = str("AE_losses_" + str(layers)+ "_" + str(layer_size) +"_simple_v2_2.txt")
+        filename = str("AE_losses_" + str(layers)+ "_" + str(layer_size) +"_simple_v2_3.txt")
         file=open(filename,'w')
         file.write("trained with learning rate " + str(learning_rate) + ", batch size " + str(batch_size) + ", planned epochs " + str(epochs) + " but only took " + str(stop_epoch) + " epochs.")
         file.write("training_losses")

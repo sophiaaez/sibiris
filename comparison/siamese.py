@@ -127,6 +127,8 @@ def top10Siamese(net_path,tr_enc_path,tr_ids_path,te_enc_path,te_ids_path,reduce
     model = torch.load(net_path).cuda()
     model.eval()
     for i in range(len(te_ids)):
+      if i%1000 == 0:
+        print(i)
       te = torch.from_numpy(np.array([te_enc[i],te_enc[i]])).float().cuda()
       matches = []
       for j in range(0,len(tr_ids)):
@@ -216,7 +218,7 @@ def train(epochs,learning_rate,batch_size,tr_enc_path,tr_ids_path,save_path="sia
         training_accuracies.append(a)
         r = recall_score(labels,np.where(np.array(predictions) < 0.5, 0.0,1.0))
         stop_epoch = epoch
-        if epoch%5 == 0:
+        if epoch%10 == 0:
             val_loss = 0
             vpredictions = []
             model.eval()
@@ -238,14 +240,14 @@ def train(epochs,learning_rate,batch_size,tr_enc_path,tr_ids_path,save_path="sia
                 if stop:
                     print("TRAINING FINISHED AFTER " + str(epoch) + " EPOCHS. K BYE.")
                     break
-    if (int(stop_epoch/5)-20) < len(validation_losses):
-        final_loss = validation_losses[int(stop_epoch/5)-20] #every 5 epochs validation and 20 coz of patience
-        final_accuracy = validation_accuracies[int(stop_epoch/5)-20]
+    if (int(stop_epoch/10)-20) < len(validation_losses):
+        final_loss = validation_losses[int(stop_epoch/10)-20] #every 10 epochs validation and 20 coz of patience
+        final_accuracy = validation_accuracies[int(stop_epoch/10)-20]
     else:
         final_loss = validation_losses[-1]
         final_accuracy = validation_accuracies[-1]
     #WRITE OPTIM 
-    filename = str("siamese_optim_losses_v2.txt")
+    filename = str("siamese_optim_losses_v3.txt")
     file=open(filename,'a')
     file.write("Training loss:")
     file.write('\n')
@@ -279,12 +281,12 @@ def objective(trial):
     #batch_size = trial.suggest_int("batch_size",8,32,8)
     learning_rate = 0.00001
     batch_size = 64
-    size1 = 512#trial.suggest_categorical("size1",[1024,512,256])
-    size2 = 64#trial.suggest_categorical("size2",[32,64,128])
+    size1 = 512#trial.suggest_categorical("size1",[1024,512])
+    size2 = 32#trial.suggest_categorical("size2",[32,64,128])
     print("Size1:" + str(size1))
     print("Size2:" + str(size2))
-    set1 = np.load("../ae/ae_training_encodings_simple_v2.npy")
-    ids1 = np.load("../ae/ae_training_ids_simple_v2.npy")
+    set1 = np.load("../ae/vae_training_encodings_simple_v3.npy")
+    ids1 = np.load("../ae/vae_training_ids_simple_v3.npy")
     tr_idx = cleanDataset(ids1)
     set1 = set1[tr_idx]
     ids1 = ids1[tr_idx]
@@ -349,7 +351,7 @@ def objective(trial):
         final_loss = validation_losses[-1]
         final_accuracy = validation_accuracies[-1]
     #WRITE OPTIM 
-    filename = str("siamese_optim_v2.txt")
+    filename = str("siamese_optim_vae_sum_v3.txt")
     file=open(filename,'a')
     file.write("size1:" + str(size1))
     file.write("size2:" + str(size2))

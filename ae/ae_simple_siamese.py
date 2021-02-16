@@ -215,15 +215,17 @@ def loss_siam(output,target):
     l = loss(output,target)
     return l
 
-def trainNet(epochs,learning_rate,batch_size,data_path,layers,layer_size,factor=1,save=True):
+
+def trainNet(epochs,learning_rate,batch_size,data_path,layers,layer_size,factor=6,save=True):
     train_loader,val_loader,train_set,val_set = getDatasets(data_path,batch_size,raw=True,findDoubles=True)
     model = facenetAE(layer_amount=layers,layer_size=layer_size).cuda()
-    es = EarlyStopper(10,0.1,str("AE_earlystopsave_simple_siamese.pth"),save)
+    es = EarlyStopper(10,0.1,str("AE_earlystopsave_simple_siamese_v3.pth"),save)
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     #TRAINING
     training_losses = []
     siamese_losses = []
     validation_losses = []
+    validation_accs = []
     for epoch in range(epochs):
         total_train_loss = 0
         model.train()
@@ -239,7 +241,7 @@ def trainNet(epochs,learning_rate,batch_size,data_path,layers,layer_size,factor=
             loss.backward()
             optimizer.step()
             siamese_loss += loss_s
-            total_train_loss += loss_t
+            total_train_loss += loss
         siamese_losses.append(siamese_loss.detach().cpu().item())
         training_losses.append(total_train_loss.detach().cpu().item()) 
         print("siamese loss "  + str(siamese_loss.detach().cpu().item()))
@@ -248,20 +250,23 @@ def trainNet(epochs,learning_rate,batch_size,data_path,layers,layer_size,factor=
         #VALIDATION 
         if epoch % 10 == 0: 
             model.eval()
+            vpredictions = []
+            vlabels = []
             with torch.no_grad():
                 total_val_loss = 0
-                #first regular validation
-                for vinputs in val_loader:
-                    vinputs = vinputs.float().cuda()
-                    val_outputs = model(vinputs)
-                    vlost  = loss_fn(val_outputs,vinputs)
-                    total_val_loss += vlost
-                #then siamese validation
-                for b in range(int(math.ceil(val_set.getDatasetSize()/batch_size))):
+                for b in range(int(math.ceil(train_set.getDatasetSize()/batch_size))):
                     b1,b2,l = train_set.getDoubleBatch(batch_size,b)
                     o = model.forward_siamese(b1,b2)
-                    vloss = loss_siam(o,l)
-                    total_val_loss += vloss*factor
+                    loss_s = loss_siam(o,l)
+                    o1 = model.forward(b1)
+                    loss_t = loss_fn(o1,b1)
+                    loss = loss_s * factor + loss_t
+                    siamese_loss += loss_s
+                    total_val_loss += loss
+                    vlabels.extend(l[:,0].tolist())
+                    vpredictions.extend(o[:,0].tolist())
+                va = accuracy_score(vlabels,np.where(np.array(vpredictions) < 0.5, 0.0,1.0))
+                validation_accs.append(va)
             validation_losses.append(total_val_loss.detach().cpu().item())
             print("Epoch " + str(epoch) + " with val loss " + str(validation_losses[-1]))
             stop = es.earlyStopping(total_val_loss,model)
@@ -271,7 +276,7 @@ def trainNet(epochs,learning_rate,batch_size,data_path,layers,layer_size,factor=
                 break
     #SAVE LOSSES TO FILE
     if save == False or save == True:
-        filename = str("AE_losses_siamese_simple.txt")
+        filename = str("AE_losses_siamese_simple_v3.txt")
         file=open(filename,'w')
         file.write("trained with learning rate " + str(learning_rate) + ", batch size " + str(batch_size) + ", planned epochs " + str(epochs) + " but only took " + str(stop_epoch) + " epochs.")
         file.write("training_losses")
@@ -287,6 +292,10 @@ def trainNet(epochs,learning_rate,batch_size,data_path,layers,layer_size,factor=
         file.write("validation_losses")
         file.write('\n')
         for element in validation_losses:
+            file.write(str(element))
+            file.write('\n')   
+        file.write("validation_accuracies")
+        for element in validation_accs:
             file.write(str(element))
             file.write('\n')   
         file.close()
@@ -318,8 +327,72 @@ def evalSet(filepath,network_path=None):
         total_loss += lost.detach().cpu().item()
     print("Total loss for testset is: " + str(total_loss))
 
+"""
+Loads the siamese net at the net_path (.pth file) and calculates the top 10 accuracy
+of the test set te_enc_path and te_ids_path (both .npy files) 
+based on the training set tr_enc_path and tr_ids_path (both .npy files)
+Returns (and prints) the top 10 accuracy of the test set
+"""
+def top10Siamese(net_path,tr_path,te_path):
+    batch_size=8
+    #train_loader,val_loader,train_set,val_set = getDatasets(te_path,batch_size,raw=True,findDoubles=True)
+    train_loader,val_loader,train_set,val_set = getDatasets(tr_path,1,validation_split=0,reduction=1,raw=True,augment=False,findDoubles=False,include_unlabelled=False)
+    test_loader,val_loader,test_set,val_set = getDatasets(te_path,1,validation_split=0,reduction=1,raw=True,augment=False,findDoubles=False,include_unlabelled=False)
+
+    pred = []
+    tp = 0
+    fp = 0
+    tn = 0
+    fn = 0
+    model = torch.load(net_path).cuda()
+    model.eval()
+    tr_len = train_set.getDatasetSize()
+    te_len = test_set.getDatasetSize()
+    for i in range(te_len):
+      te,img_name,crop,te_id= test_set.getImageAndAll(i)#torch.from_numpy(np.array([te_enc[i],te_enc[i]])).float().cuda()
+      matches = []
+      te = te.float().cuda()
+      for j in range(tr_len):
+        tr,img_name,crop,tr_id = train_set.getImageAndAll(j)#torch.from_numpy(np.array([tr_enc[j],te_enc[i]])).float().cuda()
+        tr = tr.float().cuda()
+        r = model.forward_siamese(te,tr)
+        r = r[0]
+        matches.append([r.item(),tr_id])
+        if r < 0.5: #classified match 
+            if te_id == tr_id: #and is match
+              tp += 1
+            else: #but is no match
+              fp += 1
+        else: #classified not match
+            if te_id == tr_id: #but is match
+              fn += 1
+            else: #and is no match
+              tn += 1
+      matches = np.array(matches)
+      if len(matches) > 0:
+        matches = matches[matches[:,0].argsort()] #sorts from low numbers to high numbers 
+      match = False
+      whales = []
+      counter = 0
+      while len(whales) < 10:
+        m_id = matches[counter,-1]
+        if not (m_id in whales):
+          whales.append(m_id)
+          if te_id == m_id: 
+            match = True
+            break
+        counter += 1
+      if match:
+        pred.append(1)
+      else: 
+        pred.append(0)
+    a = np.mean(np.array(pred))
+    print("test accuracy: " + str(a))
+    return a
+
+
 def objective(trial):
-    epochs = 1000
+    epochs = 300
     data_path="../data/trainingset_final_v2.csv"
     #learning_rate =trial.suggest_loguniform("learning_rate", 1e-5, 1e-3)
     #batch_size = trial.suggest_int("batch_size",8,32,8)
@@ -328,7 +401,7 @@ def objective(trial):
     layer_amount = 5#trial.suggest_int("layer_amount",4,5,1)
     layer_size = 32#trial.suggest_categorical("layer_size",[64,128])#,256])
     extradense = False #trial.suggest_categorical("extradense",[True,False])
-    factor = trial.suggest_int("factor",1,30)
+    factor = 7#trial.suggest_int("factor",1,13)
     #print("BATCH SIZE: " + str(batch_size))
     print("Factor " + str(factor))
     train_loader,val_loader,train_set,val_set = getDatasets(data_path,batch_size,reduction=0.25,raw=True,findDoubles=True)
@@ -368,18 +441,15 @@ def objective(trial):
             vlabels = []
             with torch.no_grad():
                 total_val_loss = 0
-                #first regular validation
-                for vinputs in val_loader:
-                    vinputs = vinputs.float().cuda()
-                    val_outputs = model(vinputs)
-                    vlost  = loss_fn(val_outputs,vinputs)
-                    total_val_loss += vlost
-                #then siamese validation
-                for b in range(int(math.ceil(val_set.getDatasetSize()/batch_size))):
+                for b in range(int(math.ceil(train_set.getDatasetSize()/batch_size))):
                     b1,b2,l = train_set.getDoubleBatch(batch_size,b)
                     o = model.forward_siamese(b1,b2)
-                    vloss = loss_siam(o,l)
-                    total_val_loss += vloss*factor
+                    loss_s = loss_siam(o,l)
+                    o1 = model.forward(b1)
+                    loss_t = loss_fn(o1,b1)
+                    loss = loss_s * factor + loss_t
+                    siamese_loss += loss_s
+                    total_val_loss += loss
                     vlabels.extend(l[:,0].tolist())
                     vpredictions.extend(o[:,0].tolist())
                 va = accuracy_score(vlabels,np.where(np.array(vpredictions) < 0.5, 0.0,1.0))
@@ -408,10 +478,12 @@ def objective(trial):
     return final_loss
 
 
+
+
 def optimal_optimisation():
     torch.cuda.set_device(0)
     study = optuna.create_study(direction="minimize")
-    study.optimize(objective,n_trials=10)
+    study.optimize(objective,n_trials=1)
 
     pruned_trials = [t for t in study.trials if t.state == optuna.trial.TrialState.PRUNED]
     complete_trials = [t for t in study.trials if t.state == optuna.trial.TrialState.COMPLETE]

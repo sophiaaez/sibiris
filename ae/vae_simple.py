@@ -40,11 +40,11 @@ class UnFlatten(nn.Module):
         return input.view(input.size(0),self.filters, isize, isize) #4,128,128 
 
 class facenetVAE(nn.Module):
-    def __init__(self,layer_amount=6,channels=1,isize=512,layer_size=128,extradense=False):
+    def __init__(self,layer_amount=6,channels=1,isize=512,layer_size=32,extradense=False):
         super(facenetVAE,self).__init__()
         poolamount = 16
         h_dim = int(pow((isize/(poolamount*2)),2)*layer_size)
-        z_dim = int(h_dim/2)
+        z_dim = int(h_dim/4)
         self.layer_amount = layer_amount
         self.layer_size=layer_size
         self.extradense = extradense
@@ -129,7 +129,7 @@ class facenetVAE(nn.Module):
     def reparameterize(self, mu, logvar):  # producing latent layer (Guassian distribution )
         std = torch.exp(0.5 * logvar) #logvar.mul(0.5).exp_()       # hint: var=std^2
         esp = torch.randn_like(std)#torch.randn(*mu.size()).cuda()   # normal unit distribution in shape of mu
-        z = mu + std * esp     # mu:mean  std: standard deviation
+        z = mu + torch.sqrt(std) * esp     # mu:mean  std: standard deviation
         return z
     
     def bottleneck(self, h):      # hidden layer ---> mean layer + logvar layer
@@ -193,7 +193,7 @@ class facenetVAE(nn.Module):
         #print(x.size()) #[192,64,64]
         x = nn.ReLU()(self.t_conv2(x))
         #print(x.size()) #[64,128,128]
-        x = nn.ReLU()(self.t_conv1(x))
+        x = self.t_conv1(x)
         #print(x.size()) #[1,512,512]
         x = nn.Sigmoid()(x)
         #print(x.size())
@@ -215,15 +215,14 @@ def loss_fn(recon_x, x,mu,logvar,beta):   # defining loss function for va-AE (lo
         print("STOPSTOPSTOPSTOPSTOP")
         print("a" + str(a) + "b" + str(b) + "c" + str(c) + "d" + str(d))
         return 0,0,0"""
-    loss = nn.MSELoss()
-    l = loss(recon_x,x)
-    kld = -0.5 * torch.mean(1 + logvar - mu.pow(2) - logvar.exp())
-    return l+(beta*kld),l,kld
+    loss = F.mse_loss(recon_x, x, reduction='sum')
+    kld = -0.5 * torch.mean(torch.sum(1 + logvar - mu.pow(2) - logvar.exp(), dim=1), dim=0)
+    return (loss + beta * kld) / (x.shape[-1] * x.shape[-2]), loss, kld
 
 def trainNet(epochs,learning_rate,batch_size,data_path,layers,layer_size,beta=1,save=True):
-    train_loader,val_loader = getDatasets(data_path,batch_size,reduction=0.25)
+    train_loader,val_loader = getDatasets(data_path,batch_size,reduction=1)
     model = facenetVAE(layer_amount=layers,layer_size=layer_size).cuda()
-    es = EarlyStopper(100,0.1,str("VAE_earlystopsave_4_simple_v2_overfit.pth"),save)
+    es = EarlyStopper(10,0.1,str("VAE_earlystopsave_4_simple_v3_1.pth"),save)
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     #TRAINING
     training_losses = []
@@ -239,7 +238,7 @@ def trainNet(epochs,learning_rate,batch_size,data_path,layers,layer_size,beta=1,
             lost.backward() 
             optimizer.step()
             total_train_loss += lost
-        #print("train loss " + str(total_train_loss.detach().cpu().item()))
+        print("train loss " + str(total_train_loss.detach().cpu().item()))
         training_losses.append(total_train_loss.detach().cpu().item()) 
         stop_epoch = epoch
         #VALIDATION 
@@ -261,7 +260,7 @@ def trainNet(epochs,learning_rate,batch_size,data_path,layers,layer_size,beta=1,
                 break
     #SAVE LOSSES TO FILE
     if save:
-        filename = str("VAE_losses_" + str(layers)+ "_" + str(layer_size) +"_simple_2_zdim.txt")
+        filename = str("VAE_losses_" + str(layers)+ "_" + str(layer_size) +"_simple_v3_1.txt")
         file=open(filename,'w')
         file.write("trained with learning rate " + str(learning_rate) + ", batch size " + str(batch_size) + ", planned epochs " + str(epochs) + " but only took " + str(stop_epoch) + " epochs.")
         file.write("training_losses")
@@ -299,25 +298,25 @@ def evalSet(filepath,beta,network_path=None):
     print("Total loss for testset is: " + str(total_loss) + " MSE loss: " + str(total_mse) + " KLD loss: " + str(total_kld))
 
 def objective(trial):
-    epochs = 1000
+    epochs = 300
     data_path="../data/trainingset_final_v2.csv"
     #learning_rate =trial.suggest_loguniform("learning_rate", 1e-5, 1e-3)
     #batch_size = trial.suggest_int("batch_size",8,32,8)
     learning_rate = 0.0001
     batch_size = 8
-    layer_amount = 4 #trial.suggest_int("layer_amount",4,6,1)
-    layer_size = trial.suggest_categorical("layer_size",[32,128])#,256])
+    layer_amount = 6 #trial.suggest_int("layer_amount",4,6,1)
+    layer_size = 32 #trial.suggest_categorical("layer_size",[32,64])#,256])
     extradense = False #trial.suggest_categorical("extradense",[True,False])
-    #beta = trial.suggest_int("beta",1,20,1)
-    beta = 1
+    beta = trial.suggest_int("beta",1,20,1)
+    #beta = 1
     #print("BATCH SIZE: " + str(batch_size))
     #print("Layer amount: " + str(layer_amount))
     #print("Layer size: " + str(layer_size))
     #print("extradense: " + str(extradense))
     print("beta: " + str(beta))
-    train_loader,val_loader = getDatasets(data_path,batch_size)
+    train_loader,val_loader = getDatasets(data_path,batch_size,reduction=0.25)
     model = facenetVAE(layer_amount=layer_amount,layer_size=layer_size,extradense=extradense).cuda()
-    es = EarlyStopper(10,0.1,str("AE_earlystopsave_4_simple_v2.pth"),False)
+    es = EarlyStopper(10,0.1,str("VAE_earlystopsave_4_simple_v3.pth"),False)
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     #TRAINING
     training_losses = []
@@ -352,7 +351,7 @@ def objective(trial):
             validation_losses.append(total_val_loss.detach().cpu().item())
             val_mse.append(total_mse_loss.detach().cpu().item())
             print("Epoch " + str(epoch) + " with val loss " + str(validation_losses[-1]))
-            stop = es.earlyStopping(total_val_loss,model)
+            stop = es.earlyStopping(total_mse_loss,model)
             #EARLY STOPPING
             if stop:
                 print("TRAINING FINISHED AFTER " + str(epoch) + " EPOCHS. K BYE.")
@@ -377,86 +376,11 @@ def objective(trial):
     file.close()
     return final_loss
 
-def objective_small(trial):
-    epochs = 1000
-    data_path="../data/trainingset_final_v2.csv"
-    #learning_rate =trial.suggest_loguniform("learning_rate", 1e-5, 1e-3)
-    #batch_size = trial.suggest_int("batch_size",8,32,8)
-    learning_rate = 0.0001
-    batch_size = 8
-    layer_amount = 4#trial.suggest_int("layer_amount",4,6,1)
-    layer_size = 128#trial.suggest_categorical("layer_size",[64,128])#,256])
-    beta = trial.suggest_int("beta",1,20,1)
-    extradense = False # trial.suggest_categorical("extradense",[True,False])
-    #print("BATCH SIZE: " + str(batch_size))
-    #print("Layer amount: " + str(layer_amount))
-    #print("Layer size: " + str(layer_size))
-    #print("extradense: " + str(extradense))
-    print("beta: " + str(beta))
-    train_loader,val_loader = getDatasets(data_path,batch_size,reduction=0.25)
-    model = facenetVAE(layer_amount=layer_amount,layer_size=layer_size,extradense=extradense).cuda()
-    es = EarlyStopper(10,0.1,str("AE_earlystopsave_4_simple_v2.pth"),False)
-    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-    #TRAINING
-    training_losses = []
-    validation_losses = []
-    val_mse = []
-    for epoch in range(epochs):
-        total_train_loss = 0
-        model.train()
-        for inputs in train_loader:
-            optimizer.zero_grad()
-            inputs = inputs.float().cuda()
-            outputs, mu, logvar = model(inputs)
-            lost, mselost, kldlost = loss_fn(outputs, inputs,mu,logvar,beta)
-            lost.backward() 
-            optimizer.step()
-            total_train_loss += lost
-        #print("train loss " + str(total_train_loss.detach().cpu().item()))
-        training_losses.append(total_train_loss.detach().cpu().item()) 
-        stop_epoch = epoch
-        #VALIDATION 
-        if epoch % 10 == 0: 
-            model.eval()
-            with torch.no_grad():
-                total_val_loss = 0
-                total_mse_loss = 0
-                for vinputs in val_loader:
-                    vinputs = vinputs.float().cuda()
-                    voutputs, vmu, vlogvar = model(vinputs)
-                    vlost, vmselost, vkldlost = loss_fn(voutputs, vinputs,vmu,vlogvar,beta)
-                    total_val_loss += vlost
-                    total_mse_loss += vmselost
-            validation_losses.append(total_val_loss.detach().cpu().item())
-            val_mse.append(total_mse_loss.detach().cpu().item())
-            print("Epoch " + str(epoch) + " with val loss " + str(validation_losses[-1]))
-            stop = es.earlyStopping(total_val_loss,model)
-            #EARLY STOPPING
-            if stop:
-                print("TRAINING FINISHED AFTER " + str(epoch) + " EPOCHS. K BYE.")
-                break
-            trial.report(total_val_loss,epoch)
-    if (int(stop_epoch/10)-10) > 0 and (int(stop_epoch/10)-10) < len(validation_losses):
-        final_loss = validation_losses[int(stop_epoch/10)-10] #10 coz of patience = 10
-        final_mse_loss = val_mse[int(stop_epoch/10)-10]
-    else:
-        final_loss = validation_losses[-1]
-        final_mse_loss = val_mse[-1]
-    #WRITE OPTIM 
-    filename = str("vae_optim_v2_beta.txt")
-    file=open(filename,'a')
-    file.write("beta:" + str(beta))
-    file.write("final_loss:" + str(final_loss)) 
-    file.write("final_mse_loss:" + str(final_mse_loss)) 
-    file.write('\n')
-    file.close()
-    return final_loss
-
 
 def optimal_optimisation():
     torch.cuda.set_device(0)
     study = optuna.create_study(direction="minimize")
-    study.optimize(objective,n_trials=4)
+    study.optimize(objective,n_trials=5)
 
     pruned_trials = [t for t in study.trials if t.state == optuna.trial.TrialState.PRUNED]
     complete_trials = [t for t in study.trials if t.state == optuna.trial.TrialState.COMPLETE]
@@ -475,28 +399,6 @@ def optimal_optimisation():
     for key, value in trial.params.items():
         print("    {}: {}".format(key, value))
 
-
-def optimal_optimisation_small():
-    torch.cuda.set_device(0)
-    study = optuna.create_study(direction="minimize")
-    study.optimize(objective_small,n_trials=20)
-
-    pruned_trials = [t for t in study.trials if t.state == optuna.trial.TrialState.PRUNED]
-    complete_trials = [t for t in study.trials if t.state == optuna.trial.TrialState.COMPLETE]
-
-    print("Study statistics: ")
-    print("  Number of finished trials: ", len(study.trials))
-    print("  Number of pruned trials: ", len(pruned_trials))
-    print("  Number of complete trials: ", len(complete_trials))
-    
-    print("Best trial:")
-    trial = study.best_trial
-
-    print("  Value: ", trial.value)
-
-    print("  Params: ")
-    for key, value in trial.params.items():
-        print("    {}: {}".format(key, value))
 
 if __name__ == "__main__":
     torch.cuda.empty_cache()
