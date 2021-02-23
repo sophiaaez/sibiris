@@ -38,7 +38,14 @@ class UnFlatten(nn.Module):
     def forward(self, input):
         isize = int(math.sqrt(input.size(1)/self.filters))
         return input.view(input.size(0),self.filters, isize, isize) #4,128,128 
-
+"""
+The facenet Variational Autoencoder module with the following parameters:
+layer_amount = the amount of regular layers in the encoder, possible values 4,5,6, default 6
+channels = the amount of channels of the input image, default 1
+isize = the size of the square input image, default 512 for 512x512
+layer_size = the amount of feature maps at the bottleneck, possible vlaues 32,64,128,256, default 32
+extradense = an additional dense layer at the bottleneck is added if this parameter is set to True, default False
+"""
 class facenetVAE(nn.Module):
     def __init__(self,layer_amount=6,channels=1,isize=512,layer_size=32,extradense=False):
         super(facenetVAE,self).__init__()
@@ -88,7 +95,6 @@ class facenetVAE(nn.Module):
             torch.nn.init.xavier_uniform_(self.conv43.weight,gain=nn.init.calculate_gain('relu'))
             torch.nn.init.xavier_uniform_(self.conv43a.weight,gain=nn.init.calculate_gain('relu'))
             torch.nn.init.xavier_uniform_(self.t_conv43.weight,gain=nn.init.calculate_gain('relu'))
-
         self.pool = nn.MaxPool2d(3, 2,padding=1)
         self.lrn = nn.LocalResponseNorm(2)
        
@@ -112,6 +118,7 @@ class facenetVAE(nn.Module):
         self.t_conv2 = nn.ConvTranspose2d(192,64,2,stride=2)
         self.t_conv1 = nn.ConvTranspose2d(64, 1, 4, stride=4)
 
+        #Weight Initialisation
         torch.nn.init.xavier_uniform_(self.conv1.weight,gain=nn.init.calculate_gain('relu'))
         torch.nn.init.xavier_uniform_(self.conv2.weight,gain=nn.init.calculate_gain('relu'))
         torch.nn.init.xavier_uniform_(self.conv2a.weight,gain=nn.init.calculate_gain('relu'))
@@ -119,35 +126,43 @@ class facenetVAE(nn.Module):
         torch.nn.init.xavier_uniform_(self.conv3a.weight,gain=nn.init.calculate_gain('relu'))
         torch.nn.init.xavier_uniform_(self.conv4.weight,gain=nn.init.calculate_gain('relu'))
         torch.nn.init.xavier_uniform_(self.conv4a.weight,gain=nn.init.calculate_gain('relu'))
-
         torch.nn.init.xavier_uniform_(self.t_conv4.weight,gain=nn.init.calculate_gain('relu'))
         torch.nn.init.xavier_uniform_(self.t_conv3.weight,gain=nn.init.calculate_gain('relu'))
         torch.nn.init.xavier_uniform_(self.t_conv2.weight,gain=nn.init.calculate_gain('relu'))
         torch.nn.init.xavier_uniform_(self.t_conv1.weight,gain=nn.init.calculate_gain('relu'))
 
-        
-    def reparameterize(self, mu, logvar):  # producing latent layer (Guassian distribution )
-        std = torch.exp(0.5 * logvar) #logvar.mul(0.5).exp_()       # hint: var=std^2
-        esp = torch.randn_like(std)#torch.randn(*mu.size()).cuda()   # normal unit distribution in shape of mu
-        z = mu + torch.sqrt(std) * esp     # mu:mean  std: standard deviation
+    """
+    Applying the reparametrisation trick and resampling a vector z from the mu and logvar
+    Returns vector z.
+    """    
+    def reparameterize(self, mu, logvar):  
+        std = torch.exp(0.5 * logvar) 
+        esp = torch.randn_like(std)
+        z = mu + torch.sqrt(std) * esp    
         return z
     
-    def bottleneck(self, h):      # hidden layer ---> mean layer + logvar layer
+    """
+    Calculates the mu and logvar for the latent vector h and resamples it from these vectors.
+    Returns resampled vector z, mu and logvar.
+    """
+    def bottleneck(self, h):  
         mu = self.fc1(h)
         logvar = self.fc2(h)
         z = self.reparameterize(mu, logvar)
         return z, mu, logvar
-
+    
+    """
+    Encodes an image x using the encoder.
+    Returns the sampled vector z, the vector mu and the vector logvar.
+    """
     def encode(self,x):
         x = nn.ReLU()(self.conv1(x))
         x = self.pool(x)
         x = self.lrn(x)
-        #print(x.size())
         x = nn.ReLU()(self.conv2(x))
         x = nn.ReLU()(self.conv2a(x))
         x = self.lrn(x)
         x = self.pool(x)
-        #print(x.size())
         x = nn.ReLU()(self.conv3(x))
         x = nn.ReLU()(self.conv3a(x))
         x = self.pool(x)
@@ -169,13 +184,16 @@ class facenetVAE(nn.Module):
             x = nn.ReLU()(self.conv43(x))
             x = nn.ReLU()(self.conv43a(x))
         x = self.pool(x)
-        #print(x.size())
         h=self.fl(x)
         if self.extradense:
             h = self.extra(h)
         z,mu,logvar=self.bottleneck(h)
         return z,mu,logvar
 
+    """
+    Forwards an image through the encoder and decoder. 
+    Returns the reconstructed image, the mu vector and the logvar vector.
+    """
     def forward(self, x):
         z,mu,logvar = self.encode(x)        
         hz=self.fc3(z)
@@ -185,40 +203,36 @@ class facenetVAE(nn.Module):
         elif(self.layer_size == 64):
             x = nn.ReLU()(self.t_conv42(x))
         elif(self.layer_size == 32):
-            x = nn.ReLU()(self.t_conv43(x))
-        #print(x.size()) #[layer_size,16,16]
-        x = nn.ReLU()(self.t_conv4(x))
-        #print(x.size()) #[384,32,32]
-        x = nn.ReLU()(self.t_conv3(x))
-        #print(x.size()) #[192,64,64]
-        x = nn.ReLU()(self.t_conv2(x))
-        #print(x.size()) #[64,128,128]
-        x = self.t_conv1(x)
-        #print(x.size()) #[1,512,512]
+            x = nn.ReLU()(self.t_conv43(x))#[layer_size,16,16]
+        x = nn.ReLU()(self.t_conv4(x))#[384,32,32]
+        x = nn.ReLU()(self.t_conv3(x))#[192,64,64]
+        x = nn.ReLU()(self.t_conv2(x))#[64,128,128]
+        x = self.t_conv1(x)#[1,512,512]
         x = nn.Sigmoid()(x)
-        #print(x.size())
         return x,mu,logvar
 
-    
-
+"""
+Calculates different losses between the reconstructed image recon_x and the original input x.
+One loss is the mse (using the sum reduction), one is the kullback-leibler-divergence and one is the 
+combination of both, weighted with the factor beta.
+Returns the combined loss, the mse loss and the kld loss.
+"""
 def loss_fn(recon_x, x,mu,logvar,beta):   # defining loss function for va-AE (loss= reconstruction loss + KLD (to analyse if we have normal distributon))
-    """a = round(torch.min(recon_x).item(),5)
-    b = round(torch.max(recon_x).item(),5)
-    c = round(torch.min(x).item(),5)
-    d = round(torch.max(x).item(),5)
-    #if (a < 0.) or (b > 1.) or (c < 0.) or (d > 1.) or math.isnan(a) or math.isnan(b) or math.isnan(c) or math.isnan(d):
-        
-    if (a >= 0.) and (b <= 1.) and (c >= 0.) and (d <= 1.) and not (math.isnan(a) or math.isnan(b) or math.isnan(c) or math.isnan(d)):
-        BCE = F.binary_cross_entropy(recon_x, x)
-        return BCE
-    else:
-        print("STOPSTOPSTOPSTOPSTOP")
-        print("a" + str(a) + "b" + str(b) + "c" + str(c) + "d" + str(d))
-        return 0,0,0"""
     loss = F.mse_loss(recon_x, x, reduction='sum')
     kld = -0.5 * torch.mean(torch.sum(1 + logvar - mu.pow(2) - logvar.exp(), dim=1), dim=0)
     return (loss + beta * kld) / (x.shape[-1] * x.shape[-2]), loss, kld
 
+"""
+Creates and trains the facenetVAE network given the parameters:
+epochs = amount of maximum epochs
+learning_rate = the learning rate used to train the network
+batch_size = the batch size used to train the network
+data_path = the path to the training data set
+layers = the amount of regular layers (possible values = 4,5,6)
+layer_size = the amount of feature maps at the bottleneck (possible values = 32,64,128,256)
+beta = the weight factor weighing the MSE and KLD losses against each other, default 1
+save = a boolean whether the network should be saved or not, default True
+"""
 def trainNet(epochs,learning_rate,batch_size,data_path,layers,layer_size,beta=1,save=True):
     train_loader,val_loader = getDatasets(data_path,batch_size,reduction=1)
     model = facenetVAE(layer_amount=layers,layer_size=layer_size).cuda()
@@ -275,6 +289,10 @@ def trainNet(epochs,learning_rate,batch_size,data_path,layers,layer_size,beta=1,
             file.write('\n')   
         file.close()
 
+"""
+Evaluates a network at the network_path (default none), given the test set at filepath and the beta value beta.
+Prints the total losses of the test set in the console.
+"""
 def evalSet(filepath,beta,network_path=None):
     #get data
     loader, v_loader = getDatasets(filepath,8,validation_split=0,reduction=1,raw=False,augment=False)
@@ -297,22 +315,24 @@ def evalSet(filepath,beta,network_path=None):
         total_kld += kldlost.detach().cpu().item()
     print("Total loss for testset is: " + str(total_loss) + " MSE loss: " + str(total_mse) + " KLD loss: " + str(total_kld))
 
+"""
+The objective for the optimisation.
+"""
 def objective(trial):
-    epochs = 300
+    epochs = 1000
     data_path="../data/trainingset_final_v2.csv"
-    #learning_rate =trial.suggest_loguniform("learning_rate", 1e-5, 1e-3)
-    #batch_size = trial.suggest_int("batch_size",8,32,8)
-    learning_rate = 0.0001
-    batch_size = 8
-    layer_amount = 6 #trial.suggest_int("layer_amount",4,6,1)
-    layer_size = 32 #trial.suggest_categorical("layer_size",[32,64])#,256])
+    #FINDING VALUES TO TEST IN THIS TRIAL
+    learning_rate = 0.0001 #trial.suggest_loguniform("learning_rate", 1e-5, 1e-3)
+    batch_size = 8 #trial.suggest_int("batch_size",8,32,8)
+    layer_amount = trial.suggest_int("layer_amount",4,6,1)
+    layer_size = trial.suggest_categorical("layer_size",[32,64,128])#,256])
     extradense = False #trial.suggest_categorical("extradense",[True,False])
     beta = trial.suggest_int("beta",1,20,1)
-    #beta = 1
-    #print("BATCH SIZE: " + str(batch_size))
-    #print("Layer amount: " + str(layer_amount))
-    #print("Layer size: " + str(layer_size))
-    #print("extradense: " + str(extradense))
+    print("Learning Rate: " + str(learning_rate))
+    print("BATCH SIZE: " + str(batch_size))
+    print("Layer amount: " + str(layer_amount))
+    print("Layer size: " + str(layer_size))
+    print("extradense: " + str(extradense))
     print("beta: " + str(beta))
     train_loader,val_loader = getDatasets(data_path,batch_size,reduction=0.25)
     model = facenetVAE(layer_amount=layer_amount,layer_size=layer_size,extradense=extradense).cuda()
@@ -376,11 +396,13 @@ def objective(trial):
     file.close()
     return final_loss
 
-
-def optimal_optimisation():
+"""
+The optimisation of the network architecture. Runs for x trials trying to find the validation loss.
+"""
+def optimal_optimisation(x):
     torch.cuda.set_device(0)
     study = optuna.create_study(direction="minimize")
-    study.optimize(objective,n_trials=5)
+    study.optimize(objective,n_trials=x)
 
     pruned_trials = [t for t in study.trials if t.state == optuna.trial.TrialState.PRUNED]
     complete_trials = [t for t in study.trials if t.state == optuna.trial.TrialState.COMPLETE]
@@ -398,9 +420,3 @@ def optimal_optimisation():
     print("  Params: ")
     for key, value in trial.params.items():
         print("    {}: {}".format(key, value))
-
-
-if __name__ == "__main__":
-    torch.cuda.empty_cache()
-    trainNet(epochs=20,learning_rate=0.0001,batch_size=8,data_path="../data/trainingset_final_v2.csv",layers=4,layer_size=32,save=False)
-    

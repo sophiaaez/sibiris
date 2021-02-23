@@ -1,5 +1,4 @@
-ARCHITECTURE
-
+ARCHITECTURE optimisation:
 layer_amount:4layer_size:32extradense:Falsebeta:1final_loss:16.659320831298828final_mse_loss:3893960.5
 layer_amount:4layer_size:32extradense:Falsebeta:1final_loss:16.512998580932617final_mse_loss:3857887.5
 layer_amount:4layer_size:32extradense:Falsebeta:1final_loss:16.661075592041016final_mse_loss:3900816.25
@@ -33,7 +32,7 @@ layer_amount:6layer_size:64extradense:Falsebeta:1final_loss:17.67072868347168fin
 layer_amount:6layer_size:64extradense:Falsebeta:1final_loss:17.674659729003906final_mse_loss:4162855.25
 mean:18.11
 
-BETA
+BETA optimisation:
 layer_amount:6layer_size:32extradense:Falsebeta:1final_loss:16.74009132385254final_mse_loss:3912013.25
 layer_amount:6layer_size:32extradense:Falsebeta:2final_loss:18.26950454711914final_mse_loss:4193893.5
 layer_amount:6layer_size:32extradense:Falsebeta:3final_loss:19.490341186523438final_mse_loss:4410517.5
@@ -46,9 +45,19 @@ layer_amount:6layer_size:32extradense:Falsebeta:19final_loss:28.41179847717285fi
 layer_amount:6layer_size:32extradense:Falsebeta:19final_loss:28.2752742767334final_mse_loss:6077519.0
 
 
-SIAMESE FACTOR
-factor:9 final_acc:0.7065972222222222 final_loss:1262.3795166015625
-factor:19 final_acc:0.703125 final_loss:2696.083251953125
-factor:16 final_acc:0.6504629629629629 final_loss:2196.951171875
+SIAMESE FACTOR optimisation:
+factor:1 final_acc:0.6875 final_loss:183.27532958984375         ->> MIN LOSS
 factor:3 final_acc:0.6614583333333334 final_loss:448.72479248046875
+factor:3 final_acc:0.6429398148148148 final_loss:461.03753662109375
+factor:5 final_acc:0.6782407407407407 final_loss:758.5023193359375
+factor:6 final_acc:0.6608796296296297 final_loss:893.1143798828125
+factor:9 final_acc:0.6649305555555556 final_loss:1285.5931396484375
+factor:9 final_acc:0.7065972222222222 final_loss:1262.3795166015625 
+factor:13 final_acc:0.6446759259259259 final_loss:1818.9085693359375
+factor:15 final_acc:0.734375 final_loss:1798.0711669921875      ->> MAX ACC, better loss than 13 and 16! 
+factor:16 final_acc:0.7071759259259259 final_loss:2443.565185546875
+factor:16 final_acc:0.6504629629629629 final_loss:2196.951171875
 factor:16 final_acc:0.7291666666666666 final_loss:2007.52685546875
+factor:19 final_acc:0.703125 final_loss:2696.083251953125
+factor:26 final_acc:0.6863425925925926 final_loss:3437.416748046875
+factor:29 final_acc:0.6996527777777778 final_loss:3806.5927734375

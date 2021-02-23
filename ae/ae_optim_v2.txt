@@ -1,3 +1,4 @@
+Architecture optimisation:
 layer_amount:4layer_size:32extradense:Truefinal_loss:8.911086082458496          m
 layer_amount:4layer_size:32extradense:Falsefinal_loss:17.031415939331055        x
 layer_amount:4layer_size:32extradense:Falsefinal_loss:8.902318000793457         m
@@ -50,6 +51,8 @@ layer_amount:6layer_size:128extradense:Falsefinal_loss:9.100621223449707
 layer_amount:6layer_size:128extradense:Falsefinal_loss:17.26328468322754        x
 mean: 12.98
 
+
+Siamese attachment factor optimisation: 
 factor:1 final_acc:0.9066125290023201 final_loss:198.3186492919922
 factor:1 final_acc:0.9066125290023201 final_loss:198.3186492919922
 factor:5 final_acc:0.9216937354988399 final_loss:1011.2644653320312

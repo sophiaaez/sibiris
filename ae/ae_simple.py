@@ -10,7 +10,6 @@ import torchvision
 from torchvision import transforms
 from torchvision.utils import save_image
 import torchvision.datasets as datasets
-#from torchsummary import summary
 
 import csv
 import glob
@@ -21,7 +20,6 @@ from PIL import Image
 import random
 from skimage import io, util, transform, color,exposure,filters
 import optuna
-import datetime
 
 from dataset import getDatasets, WhaleDataset
 from earlystopper import EarlyStopper
@@ -40,6 +38,14 @@ class UnFlatten(nn.Module):
         isize = int(math.sqrt(input.size(1)/self.filters))
         return input.view(input.size(0),self.filters, isize, isize) #4,128,128 
 
+"""
+The facenet Autoencoder module with the following parameters:
+layer_amount = the amount of regular layers in the encoder, possible values 4,5,6, default 6
+channels = the amount of channels of the input image, default 1
+isize = the size of the square input image, default 512 for 512x512
+layer_size = the amount of feature maps at the bottleneck, possible vlaues 32,64,128,256, default 128
+extradense = an additional dense layer at the bottleneck is added if this parameter is set to True, default False
+"""
 class facenetAE(nn.Module):
     def __init__(self,layer_amount=6,channels=1,isize=512,layer_size=128,extradense=False):
         super(facenetAE,self).__init__()
@@ -50,7 +56,7 @@ class facenetAE(nn.Module):
         self.extradense = extradense
 
         #Encoder
-        self.conv1 = nn.Conv2d(1, 64, 7, stride=2, padding=3)  
+        self.conv1 = nn.Conv2d(channels, 64, 7, stride=2, padding=3)  
         self.conv2 = nn.Conv2d(64, 64, 1,stride=1)
         self.conv2a = nn.Conv2d(64, 192,3,stride=1,padding=1)
         self.conv3 = nn.Conv2d(192, 192,1,stride=1)
@@ -67,7 +73,6 @@ class facenetAE(nn.Module):
                 self.conv6a = nn.Conv2d(256,256,3,stride=1,padding=1)
                 torch.nn.init.xavier_uniform_(self.conv6.weight,gain=nn.init.calculate_gain('relu'))
                 torch.nn.init.xavier_uniform_(self.conv6a.weight,gain=nn.init.calculate_gain('relu'))
-
         if(self.layer_size == 128):
             self.conv41 = nn.Conv2d(256,128,1,stride=1)
             self.conv41a = nn.Conv2d(128,128,3,stride=1,padding=1)
@@ -99,13 +104,13 @@ class facenetAE(nn.Module):
             self.extra = nn.Linear(h_dim,h_dim)
         self.unfl = UnFlatten(layer_size)
 
-        #Decoder        
-
+        #Decoder 
         self.t_conv4 = nn.ConvTranspose2d(256,384,2,stride=2)
         self.t_conv3 = nn.ConvTranspose2d(384,192,2,stride=2)
         self.t_conv2 = nn.ConvTranspose2d(192,64,2,stride=2)
-        self.t_conv1 = nn.ConvTranspose2d(64, 1, 4, stride=4)
+        self.t_conv1 = nn.ConvTranspose2d(64, channels, 4, stride=4)
 
+        #initialise weights
         torch.nn.init.xavier_uniform_(self.conv1.weight,gain=nn.init.calculate_gain('relu'))
         torch.nn.init.xavier_uniform_(self.conv2.weight,gain=nn.init.calculate_gain('relu'))
         torch.nn.init.xavier_uniform_(self.conv2a.weight,gain=nn.init.calculate_gain('relu'))
@@ -119,16 +124,18 @@ class facenetAE(nn.Module):
         torch.nn.init.xavier_uniform_(self.t_conv2.weight,gain=nn.init.calculate_gain('relu'))
         torch.nn.init.xavier_uniform_(self.t_conv1.weight,gain=nn.init.calculate_gain('relu'))
 
+    """
+    Encodes an image x using the encoder.
+    Returns the encoding.
+    """
     def encode(self,x):
         x = nn.ReLU()(self.conv1(x))
         x = self.pool(x)
         x = self.lrn(x)
-        #print(x.size())
         x = nn.ReLU()(self.conv2(x))
         x = nn.ReLU()(self.conv2a(x))
         x = self.lrn(x)
         x = self.pool(x)
-        #print(x.size())
         x = nn.ReLU()(self.conv3(x))
         x = nn.ReLU()(self.conv3a(x))
         x = self.pool(x)
@@ -150,12 +157,15 @@ class facenetAE(nn.Module):
             x = nn.ReLU()(self.conv43(x))
             x = nn.ReLU()(self.conv43a(x))
         x = self.pool(x)
-        #print(x.size())
         h=self.fl(x)
         if self.extradense:
             h = self.extra(h)
         return(h)
 
+    """
+    Forwards an image through the encoder and decoder. 
+    Returns the reconstructed image.
+    """
     def forward(self, x):
         h = self.encode(x)
         x=self.unfl(h)
@@ -164,42 +174,35 @@ class facenetAE(nn.Module):
         elif(self.layer_size == 64):
             x = nn.ReLU()(self.t_conv42(x))
         elif(self.layer_size == 32):
-            x = nn.ReLU()(self.t_conv43(x))
-        #print(x.size()) #[layer_size,16,16]
-        x = nn.ReLU()(self.t_conv4(x))
-        #print(x.size()) #[384,32,32]
-        x = nn.ReLU()(self.t_conv3(x))
-        #print(x.size()) #[192,64,64]
-        x = nn.ReLU()(self.t_conv2(x))
-        #print(x.size()) #[64,128,128]
-        x = self.t_conv1(x)
-        #print(x.size()) #[1,512,512]
+            x = nn.ReLU()(self.t_conv43(x))#[layer_size,16,16]
+        x = nn.ReLU()(self.t_conv4(x))#[384,32,32]
+        x = nn.ReLU()(self.t_conv3(x)) #[192,64,64]
+        x = nn.ReLU()(self.t_conv2(x))#[64,128,128]
+        x = self.t_conv1(x)#[1,512,512]
         x = nn.Sigmoid()(x)
-        #print(x.size())
         return x
 
-def loss_fn(recon_x, x):   # defining loss function for va-AE (loss= reconstruction loss + KLD (to analyse if we have normal distributon))
-    """a = round(torch.min(recon_x).item(),5)
-    b = round(torch.max(recon_x).item(),5)
-    c = round(torch.min(x).item(),5)
-    d = round(torch.max(x).item(),5)
-    #if (a < 0.) or (b > 1.) or (c < 0.) or (d > 1.) or math.isnan(a) or math.isnan(b) or math.isnan(c) or math.isnan(d):
-        
-    if (a >= 0.) and (b <= 1.) and (c >= 0.) and (d <= 1.) and not (math.isnan(a) or math.isnan(b) or math.isnan(c) or math.isnan(d)):
-        BCE = F.binary_cross_entropy(recon_x, x)
-        return BCE
-    else:
-        print("STOPSTOPSTOPSTOPSTOP")
-        print("a" + str(a) + "b" + str(b) + "c" + str(c) + "d" + str(d))
-        return 0,0,0"""
+"""
+Calculates the MSE loss between the reconstructed image recon_x and the original input x.
+Returns the loss.
+"""
+def loss_fn(recon_x, x): 
     loss = nn.MSELoss()
     l = loss(recon_x,x)
-    #loss = F.mse_loss(recon_x, x, reduction='sum')
     return l
 
+"""
+Creates and trains the facenetAE network given the parameters:
+epochs = amount of maximum epochs
+learning_rate = the learning rate used to train the network
+batch_size = the batch size used to train the network
+data_path = the path to the training data set
+layers = the amount of regular layers (possible values = 4,5,6)
+layer_size = the amount of feature maps at the bottleneck (possible values = 32,64,128,256)
+save = a boolean whether the network should be saved or not, default True
+"""
 def trainNet(epochs,learning_rate,batch_size,data_path,layers,layer_size,save=True):
-    now = datetime.datetime.now()
-    #print(str(now))
+    #Initialisation
     train_loader,val_loader = getDatasets(data_path,batch_size,reduction=1)
     model = facenetAE(layer_amount=layers,layer_size=layer_size).cuda()
     es = EarlyStopper(10,0.1,str("AE_earlystopsave_4_simple_v2_3.pth"),save)
@@ -219,8 +222,6 @@ def trainNet(epochs,learning_rate,batch_size,data_path,layers,layer_size,save=Tr
             optimizer.step()
             total_train_loss += lost
         print("train loss " + str(total_train_loss.detach().cpu().item()))
-        now = datetime.datetime.now()
-        #print(str(now))
         training_losses.append(total_train_loss.detach().cpu().item()) 
         stop_epoch = epoch
         #VALIDATION 
@@ -257,6 +258,10 @@ def trainNet(epochs,learning_rate,batch_size,data_path,layers,layer_size,save=Tr
             file.write('\n')   
         file.close()
 
+"""
+Evaluates a network at the network_path (default none), given the test set at filepath.
+Prints the total loss of the test set in the console.
+"""
 def evalSet(filepath,network_path=None):
     #get data
     loader, v_loader = getDatasets(filepath,8,validation_split=0,reduction=1,raw=False,augment=False)
@@ -275,20 +280,24 @@ def evalSet(filepath,network_path=None):
         total_loss += lost.detach().cpu().item()
     print("Total loss for testset is: " + str(total_loss))
 
+"""
+The objective for the optimisation.
+"""
 def objective(trial):
     epochs = 1000
     data_path="../data/trainingset_final_v2.csv"
-    #learning_rate =trial.suggest_loguniform("learning_rate", 1e-5, 1e-3)
-    #batch_size = trial.suggest_int("batch_size",8,32,8)
-    learning_rate = 0.0001
-    batch_size = 8
+    #FIND VALUES TO TRY IN TRIAL
+    learning_rate = 0.0001#trial.suggest_loguniform("learning_rate", 1e-5, 1e-3)
+    batch_size = 8#trial.suggest_int("batch_size",8,32,8)
     layer_amount = trial.suggest_int("layer_amount",4,6,1)
     layer_size = trial.suggest_categorical("layer_size",[32,64,128])#,256])
     extradense = False #trial.suggest_categorical("extradense",[True,False])
-    #print("BATCH SIZE: " + str(batch_size))
+    print("Learning rate: " + str(learning_rate))
+    print("Batch size: " + str(batch_size))
     print("Layer amount: " + str(layer_amount))
     print("Layer size: " + str(layer_size))
     print("Extra dense: " + str(extradense))
+    #INITIALISE
     train_loader,val_loader = getDatasets(data_path,batch_size)
     model = facenetAE(layer_amount=layer_amount,layer_size=layer_size,extradense=extradense).cuda()
     es = EarlyStopper(10,0.1,str("AE_earlystopsave_4_simple_v2.pth"),False)
@@ -307,7 +316,6 @@ def objective(trial):
             lost.backward() 
             optimizer.step()
             total_train_loss += lost
-        #print("train loss " + str(total_train_loss.detach().cpu().item()))
         training_losses.append(total_train_loss.detach().cpu().item()) 
         stop_epoch = epoch
         #VALIDATION 
@@ -332,7 +340,7 @@ def objective(trial):
         final_loss = validation_losses[int(stop_epoch/10)-10] #10 coz of patience = 10
     else:
         final_loss = validation_losses[-1]
-    #WRITE OPTIM 
+    #WRITE INTO OPTIM FILE
     filename = str("ae_optim_v2.txt")
     file=open(filename,'a')
     file.write("layer_amount:" + str(layer_amount))
@@ -343,11 +351,13 @@ def objective(trial):
     file.close()
     return final_loss
 
-
-def optimal_optimisation():
+"""
+The optimisation of the network architecture. Runs for x trials trying to find the validation loss.
+"""
+def optimal_optimisation(x):
     torch.cuda.set_device(0)
     study = optuna.create_study(direction="minimize")
-    study.optimize(objective,n_trials=2)
+    study.optimize(objective,n_trials=x)
 
     pruned_trials = [t for t in study.trials if t.state == optuna.trial.TrialState.PRUNED]
     complete_trials = [t for t in study.trials if t.state == optuna.trial.TrialState.COMPLETE]
@@ -365,8 +375,4 @@ def optimal_optimisation():
     print("  Params: ")
     for key, value in trial.params.items():
         print("    {}: {}".format(key, value))
-
-if __name__ == "__main__":
-    torch.cuda.empty_cache()
-    trainNet(epochs=20,learning_rate=0.0001,batch_size=8,data_path="../data/trainingset_final_v2.csv",layers=4,layer_size=32,save=False)
     

@@ -37,8 +37,9 @@ def classesMatch(a,b,objpath="data/obj.names"):
 
 """
 Crops all images from the imagelist and saves the croppings in two csv files, one for fins and one for flukes.
+filepath refers to the filepath of the output files without a .csv ending
 """
-def cropAll(imagelist,filepath): #filepath of the output files without a .csv ending
+def cropAll(imagelist,filepath): 
   net = Detector(bytes(cfgpath, encoding="utf-8"), bytes(weightpath, encoding="utf-8"), 0, bytes(objpath,encoding="utf-8"))
   fins = []
   flukes = []
@@ -74,6 +75,9 @@ def cropAll(imagelist,filepath): #filepath of the output files without a .csv en
           wr.writerow(r)
   print("DONE")
 
+"""
+Crops all images in the folder. filepath refers to the filepath of the output files without a .csv ending.
+"""
 def cropAllInFolder(folder,filepath):
   imagelist = glob.glob(str(folder + "*.jpg"))
   imagelist.extend(glob.glob(str(folder + "*.JPG")))
@@ -248,6 +252,3 @@ def valEval():
   plt.plot(list(range(600,4000,100)),ap75s, 'y', label="AP75")
   plt.legend()
   plt.savefig('yolo_eval_results.png')
-
-
-cropAllInFolder(folder="../data/kaggle/",filepath="../data/")

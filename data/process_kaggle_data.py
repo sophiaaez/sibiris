@@ -1,5 +1,5 @@
 import csv
-from random import shuffle
+from random import shuffle, sample
 
 """
 Merges the cropped data at croppedPath with the data labels at labelledPath
@@ -124,4 +124,58 @@ def splitData(croppedandlabelledPath="./labelled_and_cropped.csv",test_split=0.2
         for c in testset:
             wr.writerow(c)
 
-
+"""
+Randomly samples a small data set of the sizes trainsetsize and testsetsize from the existing training and test set files..
+Ensures that all individuals in the testset also have images in the trainingset.
+Saves the two data sets at trainingset_small.csv and testset_small.csv
+"""
+def sampleSmallData(trainsetsize=1000,testsetsize=100):
+    #first read the labelled part of the trainset
+    trainset = []
+    filepath = "trainingset_final_v2.csv"
+    with open(filepath, newline='') as csvfile:
+        reader = csv.reader(csvfile, delimiter=',')
+        for row in reader:
+                name = str(row[0])
+                box = (str(row[1])[1:-1]).split(",")
+                bbox = [int(b) for b in box]
+                if len(row) == 2:
+                    label = ""
+                elif len(row) == 3:
+                    label = str(row[2])
+                    if not(label == "" or label == "new_whale"):
+                        trainset.append([name,bbox,label])
+    #sample
+    train_sampled = sample(trainset,1000)
+    #create id_pool of train_sampled ids
+    id_pool = set()
+    for t in train_sampled:
+        id_pool.add(t[2])
+    #read testset and collect all with same ids as in train_sampled
+    testset = []
+    filepath = "testset_final_v2.csv"
+    with open(filepath, newline='') as csvfile:
+        reader = csv.reader(csvfile, delimiter=',')
+        for row in reader:
+                name = str(row[0])
+                box = (str(row[1])[1:-1]).split(",")
+                bbox = [int(b) for b in box]
+                if len(row) == 2:
+                    label = ""
+                elif len(row) == 3:
+                    label = str(row[2])
+                    if not(label == "" or label == "new_whale"):
+                        #print(label)
+                        if label in id_pool:
+                            testset.append([name,bbox,label])
+    #sample
+    test_sampled = sample(testset,100)
+    #save
+    with open("trainingset_small.csv", "w", newline='') as myfile:
+        wr = csv.writer(myfile,delimiter=',')
+        for c in train_sampled:
+            wr.writerow(c)
+    with open("testset_small.csv", "w", newline='') as myfile:
+        wr = csv.writer(myfile,delimiter=',')
+        for c in test_sampled:
+            wr.writerow(c)

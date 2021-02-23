@@ -9,7 +9,7 @@ objpath = "yolo/obj.data"
 
 """
 input, imagelist: a list of paths where images can be found
-output, fins and flukes:  lists/rather tables (sorted by fin and fluke labels) with line format imagepath, relative middlepoint, croppedImage in grayscale with values between 0 and 1
+output, fins and flukes:  lists/rather tables (sorted by fin and fluke labels) with line format imagepath and bounding box in the format of x1,y1,x2,y2 
 """
 def preprocessImages(imagelist):
   #create YOLOv3 Network
@@ -31,16 +31,9 @@ def preprocessImages(imagelist):
       y2 = min(int(y+h/2),img.shape[0])
       x1 = max(int(x-w/2),0)
       x2 = min(int(x+w/2),img.shape[1])
-      #crop the image
-      crop = img[y1:y2,x1:x2]
-      crop = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY) #convert image to gray, as is processed by next module
-      crop = crop*(1/255) #normalise the image to values between 0 and 1, necessary for further processing 
-      #calculate relative middlepoint, this is important if multiple individuals in one image
-      middlex = x/img[1] #shape[0] = y, shape[1] = x
-      middley = y/img[0]
       if label == "fin":
-        fins.append([i,[middlex,middley],crop])
+        fins.append([i,[x1,y1,x2,y2]])
       elif label == "fluke":
-        flukes.append([i,[middlex,middley],crop])
+        flukes.append([i,[x1,y1,x2,y2]])
   return(fins,flukes)
 

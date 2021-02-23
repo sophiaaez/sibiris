@@ -4,6 +4,11 @@ import numpy as np
 import torch
 from skimage import io, color
 
+"""
+Reads in the images and their bounding boxes located in a csv file at filepath.
+Runs a certain amount (default 100) of these cropped images through the network at network_path
+and saves the output/recreated image that the network gives in the subfolder "/outputs/"
+"""
 def getAndSaveOutputs(filepath,network_path=None,amount=100):
     imagelist = []
     code = network_path[:3]
@@ -30,8 +35,12 @@ def getAndSaveOutputs(filepath,network_path=None,amount=100):
             image  =output[0,0].cpu().detach()
             io.imsave("./outputs/" + code + imagename, (color.grey2rgb(image)*255).astype(np.uint8))
             io.imsave("./outputs/" + imagename,(color.grey2rgb(img[0,0])*255).astype(np.uint8))
-            print(imagename)
 
+"""
+Reads in the images and their bounding boxes located in a csv file at filepath.
+A certain amount (default 100) images are augmented as the network will receive them.
+These images are saved in the "/outputs/" folder with the code "input" at the beginning of the name.
+"""
 def getAndSaveInputs(filepath,amount=100):
     imagelist = []
     code = "input"
@@ -50,11 +59,17 @@ def getAndSaveInputs(filepath,amount=100):
         img, img_name, _, _ = dataset.getImageAndAll(i)
         imagename = img_name.split("/")[-1]
         image  = dataset[i][0]
-        print(image.shape)
-        print(image[0,0])
         io.imsave("./outputs/" + code + imagename, (color.grey2rgb(image)*255).astype(np.uint8))
-        print(imagename)
 
+"""
+Reads in the images and their bounding boxes located in a csv file at filepath.
+Runs a certain amount (default 100) of these cropped images through the encoder part of the 
+network at network_path. ntype refers to the type of the network and is either "ae" or "vae".
+The filename is either "test" or "training" and determines the name of the output file
+in which the encodings are stored. 
+The encodings are saved in the same order as their ids, therefore, two .npy files are created.
+One with ids (structured [imagename, [bounding box], tag/id]) and one with the encodings.
+"""
 def getAndSaveEncodings(filepath,filename,ntype,network_path): #ntype = networktype e.g. vae or ae. filename = training or test
     imagelist = []
     with open(filepath, newline='') as csvfile:

@@ -11,7 +11,11 @@ def cleanDataset(tr_ids):
             tr_idx.append(i)
     return tr_idx
 
-
+"""
+Returns random indices to subsample a set of the size len_set into a set 
+of the size size. It is checked that no indices are twice in the list of indices
+that is returned.
+"""
 def randomSubset(size,len_set):
   idx = []
   while len(idx) < size:

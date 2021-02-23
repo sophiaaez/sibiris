@@ -8,6 +8,15 @@ import random
 from torchvision import transforms
 import warnings
 
+"""
+The Whale Dataset handles the whale images for the autoencoders,  created from the following parameters:
+imagelist = a list of images in the format where a row is structured as follows [imagename, bounding box, tag/id]
+img_size = the square size which the images of the dataset shall, e.g. 512 for 512x512
+path = where the images are located relative to this file, default "../data/kaggle/"
+transformation_share = how many of the images are ought to be augmented, default 0.5
+augment = if any of the images shall be augmented, default True
+findDoubles = if a list of those individuals that appear at least twice shall be kept, default True
+"""
 class WhaleDataset(Dataset):
     def __init__(self,imagelist,img_size,path="../data/kaggle/",transformation_share=0.5,augment=True,findDoubles=False):
         self.imagelist = imagelist
@@ -17,22 +26,25 @@ class WhaleDataset(Dataset):
         if findDoubles:
             self.labelledDoublesImagelist = self.findLabelledDoubles()
         self.augment = augment
-        #self.print = 0
         self.transform = nn.Sequential(
-                #transforms.RandomHorizontalFlip(),
-                #transforms.RandomRotation(45), #doesnt work
-                #transforms.ColorJitter(),
                 transforms.RandomAffine(20),
-                #transforms.GaussianBlur(kernel_size=5),
-                #transforms.Grayscale()
         )
         self.scripted_transforms = torch.jit.script(self.transform)
         self.ts = transformation_share
         warnings.simplefilter(action='ignore', category=UserWarning) #coz random affine keeps throwing them!
 
+    """
+    Returns the length of the dataset.
+    """
     def __len__(self):
         return(len(self.imagelist))
 
+    """
+    Returns the item at index idx. fullist determines whether we require images from the labelledDoubles List (False) or not (True), default True.
+    Images are cropped according to their bounding box annotation, converted into grayscale and transformed into 512x512 pixels.
+    Furthermore, images are augmented, if previously defined, with a chance of 50% for each augmentation: 
+    intensity rescaling, additive noise, rotation, gaussian blur, horizontal flip and affine transformation.
+    """
     def __getitem__(self,idx,fulllist=True):
         if torch.is_tensor(idx):
           idx = idx.tolist()
@@ -42,16 +54,10 @@ class WhaleDataset(Dataset):
         elif self.findDoubles:
             img_name = self.labelledDoublesImagelist[idx][0]
             x1,y1,x2,y2 = self.labelledDoublesImagelist[idx][1]
-        #image = Image.open(str(self.path + img_name)).convert("L")
-        #image = image.crop((x1,y1,x2,y2))
-        #image = image.resize((self.img_size,self.img_size))
-        #image = transforms.ToTensor()(image)
         image = io.imread(str(self.path + img_name),as_gray=True)
         image = image[y1:y2,x1:x2] #CROPPING
         image = transform.resize(image,(self.img_size,self.img_size))
         tran = np.random.randint(0,100)
-        #image = transforms.ToTensor()(image)
-        #image = self.scripted_transforms(image)
         if self.augment and tran < self.ts*100:
             tran_1 = np.random.randint(0,2)
             if tran_1 == 1: #rescale intensity
@@ -81,6 +87,10 @@ class WhaleDataset(Dataset):
             image = transforms.ToTensor()(image)  
         return image
 
+    """
+    Returns an image, as _getitem_ but the information of the image is added. 
+    The output looks as follows: image, image name, bounding box, tag/id.
+    """
     def getImageAndAll(self,idx):
         if torch.is_tensor(idx):
           idx = idx.tolist()
@@ -95,6 +105,11 @@ class WhaleDataset(Dataset):
             tag = self.imagelist[idx][2]
         return image,img_name,self.imagelist[idx][1],tag
 
+    """
+    Finds another image with the same id as that of the image at the location of x.
+    The list is searched from a random starting point to the end and from the start to the random starting point.
+    Returns the index of this other image or -1 for a failure. 
+    """
     def findMatchToX(self,x): #x is the index of the image at the labelled list we're looking for an image
         if self.findDoubles:
             start = np.random.randint(0,len(self.labelledDoublesImagelist))#start at random point within list
@@ -106,6 +121,12 @@ class WhaleDataset(Dataset):
                     return i
             return(-1) #return failure
 
+    """
+    Creates a Double Batch,two batches that align and a label vector that expresses which images on the alignment are from the same individual.
+    Given the batch size batch_size and the index idx. This index does not refer to an image, but a batch, therefore idx = 1 -> images from 64-128 if batch_size 64.
+    everyX refers to every how many images a match shall be included, default 2.
+    Returns one batch, another batch some of whose ids are the same as the first and a label vector that states which of these images match.
+    """
     def getDoubleBatch(self,batch_size, idx,everyX=2):
         if self.findDoubles:
             batch1 = torch.tensor([])
@@ -118,9 +139,9 @@ class WhaleDataset(Dataset):
                 batch1 = torch.cat([batch1,self.__getitem__(i,False).cuda()])
                 #if we've not fulfilled the everyX quota
                 if matches < int(batch_size/everyX):
-                    idx = self.findMatchToX(i)
-                    if idx > -1:
-                            batch2 = torch.cat([batch2,self.__getitem__(idx,False).cuda()])
+                    index = self.findMatchToX(i)
+                    if index > -1:
+                            batch2 = torch.cat([batch2,self.__getitem__(index,False).cuda()])
                             siam_out = torch.cat([siam_out,torch.tensor([0]).cuda()])#match
                             matches += 1
                 else:
@@ -129,29 +150,25 @@ class WhaleDataset(Dataset):
                         j = np.random.randint(0,len(self.labelledDoublesImagelist)) #and if so draw again until it's not
                     batch2 = torch.cat([batch2,self.__getitem__(j,False).cuda()]) 
                     siam_out = torch.cat([siam_out,torch.tensor([1]).cuda()]) #no match
-
-                """#if no match was found/the batch1 is still shorter than batch2
-                if not (len(batch1) == len(batch2)):
-                    j = np.random.randint(0,len(self.labelledDoublesImagelist)) #find random one
-                    while i == j: #check if it's not the same we got
-                        j = np.random.randint(0,len(self.labelledDoublesImagelist)) #or draw again
-                    batch2 = torch.cat([batch2,self.__getitem__(j).cuda()]) 
-                    if self.labelledDoublesImagelist[i][2] == self.labelledDoublesImagelist[j][2] and not (i == j): #just to be save
-                        siam_out = torch.cat([siam_out,torch.tensor([0]).cuda()])#match
-                        matches += 1
-                    else:
-                        siam_out = torch.cat([siam_out,torch.tensor([1]).cuda()]) #no match"""
             batch1 = batch1.reshape((batch_size,1,self.img_size,self.img_size))
             batch2 = batch2.reshape((batch_size,1,self.img_size,self.img_size))
             siam_out = siam_out.reshape((batch_size,1))
             return(batch1.float().cuda(),batch2.float().cuda(),siam_out.float().cuda())
 
+    """
+    Returns the size of the dataset based on onlyLabelledAndDouble (default False). 
+    This means that the amount of images that are from a whale that is also portrayed on one or more images can be accessed.
+    """
     def getDatasetSize(self,onlyLabelledAndDouble=False):
         if onlyLabelledAndDouble and self.findDoubles:
             return len(self.labelledDoublesImagelist)
         else:
             return len(self.imagelist)
 
+    """
+    Creates a list of labelled doubles. Meaning that all those whale ids that appear more than once are searched and all the images
+    belonging to these whales are returned in one arraylist.
+    """
     def findLabelledDoubles(self):
         size = 0
         labelled = []
@@ -173,9 +190,18 @@ class WhaleDataset(Dataset):
             labelledDoubles.extend(ilist[idx[0]])
         return labelledDoubles
 
-
-
-
+"""
+Creates datasets based on certain parameters:
+filepath = the path to the csv where the images, bounding boxes and ids are stored
+batch_size = the batch size that the data loader working the data set is created with
+validation_split = the part of the data set that is split into a separate validation data set, default 1/3
+reduction = if the entire data set is used or whether it is reduced, for a reduced set this value has to between 0 and 1, default 1
+raw = whether the data set objects themselves shall be returned along with the data loaders, default False
+augment = whether the data set shall augment the images, default True
+findDoubles = whether the data set shall find ids that appear more than twice beforehand, default False, 
+include_unlabelled = whether the unlabelled data of the set shall be included, default True
+Returns either a trainloader and a validationloader or additionally also the training dataset and the validation dataset.
+"""
 def getDatasets(filepath,batch_size,validation_split=1/3,reduction=1,raw=False,augment=True,findDoubles=False,include_unlabelled=True):
     size = 512
     set_raw = []

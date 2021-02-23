@@ -52,7 +52,7 @@ def findIndices(tr_ids,idlist,amount = 9,cutoff=7):
 Creates a plot of the encodings at encodingspath whose ids are at idspath. both should have .npy format.
 Saves the plot at plotpath should include .png or .jpg ending
 """
-def createPlot(encodingpath,idspath,plotpath,idlist=None):
+def createPlot(encodingpath,idspath,plotpath,idlist=None,include_img_names=True):
     enc = np.load(encodingpath)
     ids = np.load(idspath)
     idx = findIndices(ids,idlist)
@@ -66,6 +66,9 @@ def createPlot(encodingpath,idspath,plotpath,idlist=None):
     fig, ax = plt.subplots(dpi=300)
     plt.scatter(transformed[:,0],transformed[:,1])
     for i, txt in enumerate(ids):
-        ax.annotate(str(txt[0]+"\n"+ txt[-1]),(transformed[i,0],transformed[i,1]),)
+        if include_img_names:
+            ax.annotate(str(txt[0]+"\n"+ txt[-1]),(transformed[i,0],transformed[i,1]),)
+        else:
+            ax.annotate(str(txt[-1]),(transformed[i,0],transformed[i,1]),)
         plt.savefig(plotpath)
 

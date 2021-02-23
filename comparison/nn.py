@@ -53,17 +53,10 @@ def top10NN(tr_enc_path,tr_ids_path,te_enc_path,te_ids_path,reduced=None):
     te_idx = cleanDataset(te_ids)
     te_enc = te_enc[te_idx]
     te_ids = te_ids[te_idx]
-    #print(tr_enc.shape)
-    #print(tr_ids.shape)
-    #print(te_enc.shape)
-    #print(te_ids.shape)
     if reduced:
         te_idx = randomSubset(reduced,len(te_ids))
         te_enc = te_enc[te_idx]
         te_ids = te_ids[te_idx]
-    #tr_enc = tr_enc.reshape(1,-1)
-    #te_enc = te_enc.reshape(1,-1)
-    #print(tr_enc.shape)
     knut = ModNN(tr_enc,tr_ids,10)
     t10 = 0
     matchlist = []
@@ -76,5 +69,4 @@ def top10NN(tr_enc_path,tr_ids_path,te_enc_path,te_ids_path,reduced=None):
                     matchlist.append(results[ir])
                     break
     print("TOP 10: "  + str(t10/matchables))
-    #np.save("matches_nn.npy",np.array(matchlist))
     return(t10/matchables)
