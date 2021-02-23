@@ -7,16 +7,9 @@ Link to thesis:
 
 ---
 ## Modules and their algorithms:
-- Pre-processing Module:
--- YOLOv3
--- RetinaNet
-- Encoding Module:
---Autoencoder 
---Variational Autoencoder
-- Comparison Module:
--- Nearest Neighbour
--- Multi-layer Perceptron
--- Siamese Network
+- Pre-processing Module: YOLOv3, RetinaNet
+- Encoding Module: Autoencoder, (Disentangled-)Variational Autoencoder, Autoencoder connected with Siamese Network at bottleneck, Variational Autoencoder connected with Siamese Network at bottleneck
+- Comparison Module: Nearest Neighbour, Multi-layer Perceptron, Siamese Network
 
 ## Data:
 - both data sets used are not included in the github
