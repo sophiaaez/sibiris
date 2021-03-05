@@ -100,7 +100,7 @@ def getAndSaveEncodings(filepath,filename,ntype,network_path): #ntype = networkt
                 encodings = np.append(encodings,eco,axis=0)
                 encoding_ids.append([img_name,str(bbox),tag])
         e_ids = np.array(encoding_ids)
-        with open(str(ntype + '_' + filename + '_mean_encodings_simple_v3.npy'), 'wb') as f:
+        with open(str(ntype + '_' + filename + '_encodings_simple_v3.npy'), 'wb') as f:
             np.save(f, encodings)
-        with open(str(ntype + '_' + filename + '_mean_ids_simple_v3.npy'),'wb') as f:
+        with open(str(ntype + '_' + filename + '_ids_simple_v3.npy'),'wb') as f:
             np.save(f,e_ids)

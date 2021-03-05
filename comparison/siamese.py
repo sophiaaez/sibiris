@@ -277,12 +277,12 @@ def train(epochs,learning_rate,batch_size,tr_enc_path,tr_ids_path,save_path="sia
 
 def objective(trial):
     epochs = 1000
-    #learning_rate =trial.suggest_loguniform("learning_rate", 1e-5, 1e-3)
-    #batch_size = trial.suggest_int("batch_size",8,32,8)
-    learning_rate = 0.00001
-    batch_size = 64
-    size1 = 512#trial.suggest_categorical("size1",[1024,512])
-    size2 = 32#trial.suggest_categorical("size2",[32,64,128])
+    learning_rate = 0.00001#trial.suggest_loguniform("learning_rate", 1e-5, 1e-3)
+    batch_size = 64#trial.suggest_int("batch_size",8,64,8)
+    size1 = trial.suggest_categorical("size1",[1024,512,256])
+    size2 = trial.suggest_categorical("size2",[32,64,128])
+    print("Learning rate: " + str(learning_rate))
+    print("batch size: " + str(batch_size))
     print("Size1:" + str(size1))
     print("Size2:" + str(size2))
     set1 = np.load("../ae/vae_training_encodings_simple_v3.npy")

@@ -218,14 +218,16 @@ class facenetVAE(nn.Module):
     Throughputs two inputs (both are encodings) through the siamese network.
     Returns the distance value between these two inputs.
     """
-    def siamese(self,input1,input2):
+    def siamese(self,input1,input2,batched=True):
         x = torch.sub(input1,input2)
         x = torch.square(x)
         x = nn.ReLU()(self.c1(x))
-        x = self.bn1d(x)
-        x = nn.Dropout2d(0.25)(x)
+        if batched:
+            x = self.bn1d(x)
+            x = nn.Dropout2d(0.25)(x)
         x = nn.ReLU()(self.c2(x))
-        x = self.b1d32(x)
+        if batched:
+            x = self.b1d32(x)
         x = nn.Sigmoid()(self.c3(x))
         return(x)
 
@@ -394,7 +396,7 @@ def trainNet(epochs,learning_rate,batch_size,data_path,layers,layer_size,factor=
         final_loss = validation_losses[-1]
     #SAVE LOSSES TO FILE
     if save == False or save == True:
-        filename = str("AE_losses_siamese_simple_v2.txt")
+        filename = str("VAE_losses_siamese_simple_v3.txt")
         file=open(filename,'w')
         file.write("trained with learning rate " + str(learning_rate) + ", batch size " + str(batch_size) + ", planned epochs " + str(epochs) + " but only took " + str(stop_epoch) + " epochs.")
         file.write("training_losses")
@@ -424,7 +426,7 @@ Prints the total loss of the test set in the console.
 """
 def evalSet(filepath,beta,network_path=None):
     #get data
-    loader, v_loader = getDatasets(filepath,8,validation_split=0,reduction=1,raw=False,augment=False)
+    loader, v_loader = getDatasets(filepath,4,validation_split=0,reduction=1,raw=False,augment=False)
     #get model
     if network_path:
         model = torch.load(network_path)
@@ -446,16 +448,18 @@ def evalSet(filepath,beta,network_path=None):
 
 """
 Loads the siamese net at the net_path (.pth file) and calculates the top 10 accuracy
-of the test set te_enc_path and te_ids_path (both .npy files) 
-based on the training set tr_enc_path and tr_ids_path (both .npy files)
+of the already processed encodings of the test and training set,
+(input as the tr_ and te_ path which are the paths to the encodings
+and the tr_ids_ and te_ids_path which are the paths to the id files, all .npy files)
 Returns (and prints) the top 10 accuracy of the test set
 """
-def top10Siamese(net_path,tr_path,te_path):
-    batch_size=8
-    #train_loader,val_loader,train_set,val_set = getDatasets(te_path,batch_size,raw=True,findDoubles=True)
-    train_loader,val_loader,train_set,val_set = getDatasets(tr_path,1,validation_split=0,reduction=1,raw=True,augment=False,findDoubles=False,include_unlabelled=False)
-    test_loader,val_loader,test_set,val_set = getDatasets(te_path,1,validation_split=0,reduction=1,raw=True,augment=False,findDoubles=False,include_unlabelled=False)
-
+def top10Siamese(net_path,tr_path,tr_ids_path,te_path,te_ids_path):
+    train_enc = np.load(tr_path)
+    train_ids = np.load(tr_ids_path)
+    test_enc = np.load(te_path)
+    test_ids = np.load(te_ids_path)
+    te_len = len(test_ids)
+    tr_len = len(train_ids)
     pred = []
     tp = 0
     fp = 0
@@ -463,16 +467,16 @@ def top10Siamese(net_path,tr_path,te_path):
     fn = 0
     model = torch.load(net_path).cuda()
     model.eval()
-    tr_len = train_set.getDatasetSize()
-    te_len = test_set.getDatasetSize()
     for i in range(te_len):
-      te,img_name,crop,te_id= test_set.getImageAndAll(i)#torch.from_numpy(np.array([te_enc[i],te_enc[i]])).float().cuda()
+      te = test_enc[i]
+      _,_,te_id = test_ids[i]
       matches = []
-      te = te.float().cuda()
+      te = torch.from_numpy(te).float().cuda()
       for j in range(tr_len):
-        tr,img_name,crop,tr_id = train_set.getImageAndAll(j)#torch.from_numpy(np.array([tr_enc[j],te_enc[i]])).float().cuda()
-        tr = tr.float().cuda()
-        r = model.forward_siamese(te,tr)
+        tr = train_enc[j]
+        _,_,tr_id = train_ids[j]
+        tr = torch.from_numpy(tr).float().cuda()
+        r = model.siamese(te,tr,batched=False)
         r = r[0]
         matches.append([r.item(),tr_id])
         if r < 0.5: #classified match 
@@ -511,7 +515,7 @@ def top10Siamese(net_path,tr_path,te_path):
 The objective for the optimisation.
 """
 def objective(trial):
-        epochs = 300
+    epochs = 300
     data_path="../data/trainingset_final_v2.csv"
     learning_rate = 0.0001 #trial.suggest_loguniform("learning_rate", 1e-5, 1e-3)
     batch_size = 4 #trial.suggest_int("batch_size",8,32,8)
